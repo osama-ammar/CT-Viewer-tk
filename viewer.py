@@ -60,6 +60,9 @@ class VolumeViewer:
         self.slice_slider = tk.Scale(root, from_=0, to=1, orient=tk.VERTICAL, resolution=1, command=self.update_slice,length=300)
         self.slice_slider.pack(side=tk.LEFT, padx=10, pady=10)
 
+        # Bind mouse wheel event to update the displayed slice
+        self.canvas.bind("<MouseWheel>", self.on_mousewheel)
+
         # Bind mouse motion event to update pixel values
         self.canvas.bind("<Motion>", self.update_pixel_values)
         
@@ -186,6 +189,20 @@ class VolumeViewer:
         if self.volume is not None:
             pixel_value = self.volume[self.current_slice_index][int(y), int(x)]
             self.pixel_value_label.config(text=f"Pixel Value: {pixel_value} , pixel Location :{int(y), int(x)}")
+
+    def on_mousewheel(self, event):
+        
+        # Determine the direction of the mouse wheel scroll
+        delta = event.delta
+        # Update the current slice index based on the mouse wheel direction
+        if delta > 0:  # Scrolling up
+            self.current_slice_index+=1
+        else:  # Scrolling down
+            self.current_slice_index -=1
+        # Update the displayed slice
+        self.slice_slider.set(self.current_slice_index)
+        self.update_slice(self.current_slice_index)
+
 
 
 if __name__ == "__main__":
