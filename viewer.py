@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import filedialog
 import numpy as np
 from PIL import Image, ImageTk
-from stl import mesh  
+from stl import mesh  # Make sure to install the `numpy-stl` library
 import vtk
 print (vtk.__version__)
 from vtk.util import numpy_support
@@ -85,15 +85,16 @@ class VolumeViewer:
 
     def normalize_volume(self,npy_volume):
         # Adjust window level and window width
+        normalized_volume=npy_volume.copy()
         window_min = self.window_level - self.window_width / 2
         window_max = self.window_level + self.window_width / 2
-        for i, image in enumerate(npy_volume) :
+        for i, image in enumerate(normalized_volume) :
             # Clip values to the window level and width
             image = np.clip(image, window_min, window_max)
-            image=(image/window_max)*255
-            npy_volume[i]=image
+            image=image/window_max
+            normalized_volume[i]=image
             
-        return npy_volume
+        return normalized_volume
         
 
     def update_slice(self, val):
@@ -141,9 +142,15 @@ class VolumeViewer:
             vtk_image.SetOrigin(0, 0, 0)
 
             # Copy the NumPy array to VTK image data
-            
-            vtk_array = numpy_support.numpy_to_vtk(self.normalize_volume(self.volume).ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
+            normalized_volume=self.normalize_volume(self.volume)
+            vtk_array = numpy_support.numpy_to_vtk(normalized_volume.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
             vtk_image.GetPointData().SetScalars(vtk_array)
+
+            # threshold = vtk.vtkThreshold()
+            # threshold.SetInputData(vtk_image)
+            # threshold.ThresholdByLower(0)  # Adjust the threshold as needed
+            # threshold.Update()
+            # contour.SetInputData(threshold.GetOutput())
 
             # Convert VTK image data to a VTK PolyData
             contour = vtk.vtkMarchingCubes()
@@ -151,15 +158,15 @@ class VolumeViewer:
             contour.ComputeNormalsOn()
             contour.SetValue(0, 0.5)
 
-            # Apply decimation to reduce the number of triangles
-            decimation = vtk.vtkDecimatePro()
-            decimation.SetInputConnection(contour.GetOutputPort())
-            decimation.SetTargetReduction(0.9)  # Adjust the reduction factor as needed
+            # # Apply decimation to reduce the number of triangles
+            # decimation = vtk.vtkDecimatePro()
+            # decimation.SetInputConnection(contour.GetOutputPort())
+            # decimation.SetTargetReduction(0.9)  # Adjust the reduction factor as needed
 
             # Write the STL file
             stl_writer = vtk.vtkSTLWriter()
             stl_writer.SetFileName(file_path)
-            stl_writer.SetInputConnection(decimation.GetOutputPort())
+            stl_writer.SetInputConnection(contour.GetOutputPort())
             stl_writer.Write()
             
             print(f"Volume exported as STL : {file_path}")
