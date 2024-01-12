@@ -1,0 +1,41 @@
+# Created by https://www.gitignore.io/api/visualstudio
+
+### VisualStudio ###
+## Ignore Visual Studio temporary files, build results, and
+
+.ipynb_checkpoints
+**/.ipynb_checkpoints/*
+
+
+# data files
+dataset/
+*.npy
+
+
+# Python Tools for Visual Studio (PTVS)
+__pycache__/
+vscode/
+*.pyc
+
+# Cake - Uncomment if you are using it
+# tools/
+
+
+# training outputs
+runs/*
+mlruns/*
+logs/*
+results/*
+visualizations/*
+
+# tensorboard output
+events.*
+
+# logs output
+*.txt
+*.csv
+*.png
+
+#models
+*.pt
+*.pth
