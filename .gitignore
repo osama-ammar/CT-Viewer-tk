@@ -9,6 +9,7 @@
 
 # data files
 dataset/
+data/
 *.npy
 
 
