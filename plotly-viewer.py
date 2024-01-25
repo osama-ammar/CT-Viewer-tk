@@ -11,10 +11,9 @@ import plotly.express as px
 import dash
 from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
-import dash_html_components as html
-import dash_core_components as dcc
+from dash import  html
+from dash import  dcc
 from dash_slicer import VolumeSlicer
-
 
 external_stylesheets = [dbc.themes.BOOTSTRAP]
 app = dash.Dash(__name__, update_title=None, external_stylesheets=external_stylesheets)
@@ -35,18 +34,21 @@ def parse_arguments():
     return parser.parse_args()
 
 # Parse command-line arguments
-args = parse_arguments()
+#args = parse_arguments()
+#args.volume_path)
 
-
-img = image.load_img(args.volume_path) #"D:\\Code_store\\CT-Viewer-tk\\data\\walnut.nii\\walnut.nii"
+img = image.load_img("D:\\Code_store\\Radiosh-Tracker-1\\radiosh_app_project\\radiosh\\CT_Images\\assets\\radiopaedia_org_covid-19-pneumonia-7_85703_0-dcm.nii")
 mat = img.affine
 img = img.get_fdata()
-img = np.copy(np.moveaxis(img, -1, 0))[:, ::-1]
-
+print(img.shape)
+img = np.copy(np.moveaxis(img, 1, 2))[:, ::-1]
+img = np.copy(np.moveaxis(img, 0, 2))[:, ::-1]
+img = np.copy(np.moveaxis(img, 1, 2))[:, ::-1]
+print(img.shape)
 spacing = abs(mat[2, 2]), abs(mat[1, 1]), abs(mat[0, 0])
 
 # Create smoothed image and histogram
-med_img = filters.median(img, selem=np.ones((1, 3, 3), dtype=np.bool))
+med_img = filters.median(img, footprint=np.ones((1, 3, 3), dtype=bool))
 hi = exposure.histogram(med_img)
 
 # Create mesh
@@ -57,7 +59,7 @@ fig_mesh = go.Figure()
 fig_mesh.add_trace(go.Mesh3d(x=z, y=y, z=x, opacity=0.2, i=k, j=j, k=i))
 
 # Create slicers
-slicer1 = VolumeSlicer(app, img, axis=1, spacing=spacing, thumbnail=True)
+slicer1 = VolumeSlicer(app, img, axis=0, spacing=spacing, thumbnail=False)
 slicer1.graph.figure.update_layout(dragmode="drawclosedpath", newshape_line_color="cyan", plot_bgcolor="rgb(0, 0, 0)")
 slicer1.graph.config.update(modeBarButtonsToAdd=["drawclosedpath", "eraseshape",])
 
@@ -67,6 +69,24 @@ slicer2 = VolumeSlicer(app, img, axis=2, spacing=spacing, thumbnail=False)
 slicer2.graph.figure.update_layout(dragmode="drawrect", newshape_line_color="cyan", plot_bgcolor="rgb(0, 0, 0)")
 slicer2.graph.config.update(modeBarButtonsToAdd=["drawrect", "eraseshape",])
 
+
+histogram = dcc.Graph(
+                    id="graph-histogram",
+                    figure=px.bar(
+                        x=hi[1],
+                        y=hi[0],
+                        labels={"x": "intensity", "y": "count"},
+                        template="plotly_white",
+                    ),
+                    config={
+                        "modeBarButtonsToAdd": [
+                            "drawline",
+                            "drawclosedpath",
+                            "drawrect",
+                            "eraseshape",
+                        ]
+                    },
+                )
 
 def path_to_coords(path):
     """From SVG path to numpy array of coordinates, each row being a (row, col) point"""
@@ -142,25 +162,7 @@ histogram_card = dbc.Card(
     [
         dbc.CardHeader("Histogram of intensity values"),
         dbc.CardBody(
-            [
-                dcc.Graph(
-                    id="graph-histogram",
-                    figure=px.bar(
-                        x=hi[1],
-                        y=hi[0],
-                        labels={"x": "intensity", "y": "count"},
-                        template="plotly_white",
-                    ),
-                    config={
-                        "modeBarButtonsToAdd": [
-                            "drawline",
-                            "drawclosedpath",
-                            "drawrect",
-                            "eraseshape",
-                        ]
-                    },
-                ),
-            ]
+            [histogram ]
         ),
         dbc.CardFooter(
             [
@@ -311,6 +313,7 @@ print("layout definition", t3 - t2)
     [Input("annotations", "data")],
 )
 def update_histo(annotations):
+    print("slicer1.overlay_data:",slicer1.overlay_data)
     if (
         annotations is None
         or annotations.get("x") is None
@@ -397,7 +400,7 @@ def update_segmentation_slices(selected, annotations):
         x, y, z = verts.T
         i, j, k = faces.T
         trace = go.Mesh3d(x=z, y=y, z=x, color="red", opacity=0.8, i=k, j=j, k=i)
-        overlay1 = slicer1.create_overlay_data(img_mask)
+        overlay1 = 0#slicer1.create_overlay_data(img_mask)
         overlay2 = slicer2.create_overlay_data(img_mask)
         # todo: do we need an output to trigger an update?
         return trace, overlay1, overlay2
