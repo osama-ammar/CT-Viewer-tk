@@ -57,21 +57,15 @@ fig_mesh = go.Figure()
 fig_mesh.add_trace(go.Mesh3d(x=z, y=y, z=x, opacity=0.2, i=k, j=j, k=i))
 
 # Create slicers
-slicer1 = VolumeSlicer(app, img, axis=0, spacing=spacing, thumbnail=False)
-slicer1.graph.figure.update_layout(
-    dragmode="drawclosedpath", newshape_line_color="cyan", plot_bgcolor="rgb(0, 0, 0)"
-)
-slicer1.graph.config.update(
-    modeBarButtonsToAdd=["drawclosedpath", "eraseshape",]
-)
+slicer1 = VolumeSlicer(app, img, axis=1, spacing=spacing, thumbnail=True)
+slicer1.graph.figure.update_layout(dragmode="drawclosedpath", newshape_line_color="cyan", plot_bgcolor="rgb(0, 0, 0)")
+slicer1.graph.config.update(modeBarButtonsToAdd=["drawclosedpath", "eraseshape",])
 
-slicer2 = VolumeSlicer(app, img, axis=1, spacing=spacing, thumbnail=False)
-slicer2.graph.figure.update_layout(
-    dragmode="drawrect", newshape_line_color="cyan", plot_bgcolor="rgb(0, 0, 0)"
-)
-slicer2.graph.config.update(
-    modeBarButtonsToAdd=["drawrect", "eraseshape",]
-)
+
+
+slicer2 = VolumeSlicer(app, img, axis=2, spacing=spacing, thumbnail=False)
+slicer2.graph.figure.update_layout(dragmode="drawrect", newshape_line_color="cyan", plot_bgcolor="rgb(0, 0, 0)")
+slicer2.graph.config.update(modeBarButtonsToAdd=["drawrect", "eraseshape",])
 
 
 def path_to_coords(path):
@@ -235,49 +229,50 @@ nav_bar = dbc.Navbar(
         [
             dbc.Row(
                 [
-                    dbc.Col(
-                        dbc.Row(
-                            [
-                                dbc.Col(
-                                    html.A(
-                                        html.Img(
-                                            src=app.get_asset_url("dash-logo-new.png"),
-                                            height="30px",
-                                        ),
-                                        href="https://plotly.com/dash/",
-                                    ),
-                                    style={"width": "min-content"},
-                                ),
-                                dbc.Col(
-                                    html.Div(
-                                        [
-                                            html.H3("Covid X-Ray app"),
-                                            html.P(
-                                                "Exploration and annotation of CT images"
-                                            ),
-                                        ],
-                                        id="app_title",
-                                    )
-                                ),
-                            ],
-                            align="center",
-                            style={"display": "inline-flex"},
-                        )
-                    ),
-                    dbc.Col(
-                        [
-                            dbc.NavbarToggler(id="navbar-toggler"),
-                            dbc.Collapse(
-                                dbc.Nav(
-                                    [dbc.NavItem(button_howto), dbc.NavItem(button_gh)],
-                                    className="ml-auto",
-                                    navbar=True,
-                                ),
-                                id="navbar-collapse",
-                                navbar=True,
-                            ),
-                        ]
-                    ),
+                    # dbc.Col(
+                    #     dbc.Row(
+                    #         [
+                    #             dbc.Col(
+                    #                 html.A(
+                    #                     html.Img(
+                    #                         src=app.get_asset_url("D:\\Code_store\\CT-Viewer-tk\\data\\assets\\dash-logo-new.png"),
+                    #                         height="35px",
+                    #                     ),
+                    #                     href="https://plotly.com/dash/",
+                    #                 ),
+                    #                 style={"width": "min-content"},
+                    #             ),
+                    #             dbc.Col(
+                    #                 html.Div(
+                    #                     [
+                    #                         html.H3("Covid X-Ray app"),
+                    #                         html.P(
+                    #                             "Exploration and annotation of CT images"
+                    #                         ),
+                    #                     ],
+                    #                     id="app_title",
+                    #                 )
+                    #             ),
+                    #         ],
+                    #         align="center",
+                    #         style={"display": "inline-flex"},
+                    #     )
+                    # ),
+                    
+                    # dbc.Col(
+                    #     [
+                    #         dbc.NavbarToggler(id="navbar-toggler"),
+                    #         dbc.Collapse(
+                    #             dbc.Nav(
+                    #                 [dbc.NavItem(button_howto), dbc.NavItem(button_gh)],
+                    #                 className="ml-auto",
+                    #                 navbar=True,
+                    #             ),
+                    #             id="navbar-collapse",
+                    #             navbar=True,
+                    #         ),
+                    #     ]
+                    # ),
                     modal_overlay,
                 ],
                 align="center",
