@@ -40,11 +40,11 @@ def parse_arguments():
 img = image.load_img("D:\\Code_store\\Radiosh-Tracker-1\\radiosh_app_project\\radiosh\\CT_Images\\assets\\radiopaedia_org_covid-19-pneumonia-7_85703_0-dcm.nii")
 mat = img.affine
 img = img.get_fdata()
-print(img.shape)
+#print(img.shape)
 img = np.copy(np.moveaxis(img, 1, 2))[:, ::-1]
 img = np.copy(np.moveaxis(img, 0, 2))[:, ::-1]
 img = np.copy(np.moveaxis(img, 1, 2))[:, ::-1]
-print(img.shape)
+#print(img.shape)
 spacing = abs(mat[2, 2]), abs(mat[1, 1]), abs(mat[0, 0])
 
 # Create smoothed image and histogram
@@ -64,11 +64,38 @@ slicer1.graph.figure.update_layout(dragmode="drawclosedpath", newshape_line_colo
 slicer1.graph.config.update(modeBarButtonsToAdd=["drawclosedpath", "eraseshape",])
 
 
-
 slicer2 = VolumeSlicer(app, img, axis=2, spacing=spacing, thumbnail=False)
 slicer2.graph.figure.update_layout(dragmode="drawrect", newshape_line_color="cyan", plot_bgcolor="rgb(0, 0, 0)")
 slicer2.graph.config.update(modeBarButtonsToAdd=["drawrect", "eraseshape",])
 
+#########################################################################
+#creat x-ray image figure
+
+
+# Constants
+
+from PIL import Image
+import plotly.express as px
+x_ray_image = Image.open("D:\\chest.jpg")
+image_shape = x_ray_image.size
+#print("Image shape:", image_shape)
+x_ray_fig_px = px.imshow(x_ray_image, binary_string=True)
+# Update layout to show the full size and enable annotations
+x_ray_fig_px.update_layout(
+    width=image_shape[0],  # Set width to image width
+    height=image_shape[1],  # Set height to image height
+    dragmode="drawrect",  # Enable rectangle annotation
+    newshape=dict(line=dict(color="cyan")),  # Set annotation line color to cyan
+)
+annotations = x_ray_fig_px.layout.shapes
+
+# Print the coordinates of each rectangle
+for annotation in annotations:
+    print(annotation)
+    if annotation.type == 'rect':
+        print("Rectangle coordinates ", annotation.x0, annotation.y0, annotation.x1, annotation.y1)
+
+################################################################################################
 
 histogram = dcc.Graph(
                     id="graph-histogram",
@@ -191,110 +218,85 @@ mesh_card = dbc.Card(
     [
         dbc.CardHeader("3D mesh representation of the image data and annotation"),
         dbc.CardBody([dcc.Graph(id="graph-helper", figure=fig_mesh)]),
+
+        
     ]
 )
+
+
+
+
+image_card = dbc.Card(
+    [
+        dbc.CardHeader("X-Ray"),
+        dbc.CardBody([
+            dcc.Graph(figure=x_ray_fig_px,id='x-ray-graph',style={'width': '100%', 'height': '100%'})
+            # Add other dbc components as needed
+        ]),
+        dbc.Button("Print Something", id="print-button", color="primary", className="mr-1", n_clicks=0),
+        html.Div(id="print-output"),  # Placeholder for the output of the print function
+        dbc.CardFooter(
+            [
+                html.H6(
+                    [
+                        "Step 1: Draw a rough outline that encompasses all ground glass occlusions across ",
+                    ]
+                ),
+                dbc.Tooltip(
+                    "Use the slider to scroll vertically through the image and look for the ground glass occlusions.",
+                    target="tooltip-target-1",
+                ),
+            ]
+        ),
+    ]
+)
+
+
+# Access the children of the image_card
+children = image_card.children
+
+# Initialize variables to store image size and annotations
+image_size = None
+annotations = None
+
+# Iterate through the children to find the dcc.Graph component
+for child in children:
+    if isinstance(child, dcc.Graph):
+        # Get the figure object of the dcc.Graph component
+        figure = child.figure
+        
+        # Extract image size and annotations from the figure
+        layout = figure.get('layout', {})
+        image_size = layout.get('width'), layout.get('height')
+        annotations = figure.get('layout', {}).get('annotations')
+
+# Print image size and annotations
+print("Image size:", image_size)
+print("Annotations:", annotations)
+
+
+
+
+
+
+
 
 # Define Modal
 with open("data/assets/modal.md", "r") as f:
     howto_md = f.read()
 
-modal_overlay = dbc.Modal(
-    [
-        dbc.ModalBody(html.Div([dcc.Markdown(howto_md)], id="howto-md")),
-        dbc.ModalFooter(dbc.Button("Close", id="howto-close", className="howto-bn")),
-    ],
-    id="modal",
-    size="lg",
-)
 
-# Buttons
-button_gh = dbc.Button(
-    "Learn more",
-    id="howto-open",
-    outline=True,
-    color="secondary",
-    # Turn off lowercase transformation for class .button in stylesheet
-    style={"textTransform": "none"},
-)
-
-button_howto = dbc.Button(
-    "View Code on github",
-    outline=True,
-    color="primary",
-    href="https://github.com/plotly/dash-sample-apps/tree/master/apps/dash-covid-xray",
-    id="gh-link",
-    style={"text-transform": "none"},
-)
-
-nav_bar = dbc.Navbar(
-    dbc.Container(
-        [
-            dbc.Row(
-                [
-                    # dbc.Col(
-                    #     dbc.Row(
-                    #         [
-                    #             dbc.Col(
-                    #                 html.A(
-                    #                     html.Img(
-                    #                         src=app.get_asset_url("D:\\Code_store\\CT-Viewer-tk\\data\\assets\\dash-logo-new.png"),
-                    #                         height="35px",
-                    #                     ),
-                    #                     href="https://plotly.com/dash/",
-                    #                 ),
-                    #                 style={"width": "min-content"},
-                    #             ),
-                    #             dbc.Col(
-                    #                 html.Div(
-                    #                     [
-                    #                         html.H3("Covid X-Ray app"),
-                    #                         html.P(
-                    #                             "Exploration and annotation of CT images"
-                    #                         ),
-                    #                     ],
-                    #                     id="app_title",
-                    #                 )
-                    #             ),
-                    #         ],
-                    #         align="center",
-                    #         style={"display": "inline-flex"},
-                    #     )
-                    # ),
-                    
-                    # dbc.Col(
-                    #     [
-                    #         dbc.NavbarToggler(id="navbar-toggler"),
-                    #         dbc.Collapse(
-                    #             dbc.Nav(
-                    #                 [dbc.NavItem(button_howto), dbc.NavItem(button_gh)],
-                    #                 className="ml-auto",
-                    #                 navbar=True,
-                    #             ),
-                    #             id="navbar-collapse",
-                    #             navbar=True,
-                    #         ),
-                    #     ]
-                    # ),
-                    modal_overlay,
-                ],
-                align="center",
-                style={"width": "100%"},
-            ),
-        ],
-        fluid=True,
-    ),
-    color="dark",
-    dark=True,
-)
 
 
 app.layout = html.Div(
     [
-        nav_bar,
+
         dbc.Container(
             [
                 dbc.Row([dbc.Col(axial_card), dbc.Col(saggital_card)]),
                 dbc.Row([dbc.Col(histogram_card), dbc.Col(mesh_card),]),
+                dbc.Row([dbc.Col(image_card), ]),
+                
             ],
             fluid=True,
         ),
@@ -450,6 +452,21 @@ function(surf, fig){
     state=[State("graph-helper", "figure"),],
 )
 
+# Define callback to update the Div with coordinates
+@app.callback(
+    Output("coordinate-output", "children"),
+    [Input("x_ray_fig_px", "relayoutData")]
+)
+def update_coordinates(relayout_data):
+    print("update_coordinatesupdate_coordinatesupdate_coordinatesupdate_coordinates")
+    if "shapes" in relayout_data:
+        shapes = relayout_data["shapes"]
+        rectangles = [shape for shape in shapes if shape["type"] == "rect"]
+        coordinates = [f"Rectangle {i+1}: ({rectangle['x0']}, {rectangle['y0']}) - ({rectangle['x1']}, {rectangle['y1']})" for i, rectangle in enumerate(rectangles)]
+        print(coordinates)
+        return [html.P(coord) for coord in coordinates]
+    return []
+
 
 @app.callback(
     Output("modal", "is_open"),
@@ -462,9 +479,30 @@ def toggle_modal(n1, n2, is_open):
     return is_open
 
 
+def print_annotations(n_clicks, figure):
+    if n_clicks > 0:
+        annotations = figure.get('layout', {}).get('annotations')
+        if annotations:
+            print("Annotations:")
+            for annotation in annotations:
+                print(annotation)
+        else:
+            print("No annotations found.")
 
+# Define callback to print something when the button is clicked
+@app.callback(
+    Output("print-output", "children"),
+    [Input("print-button", "n_clicks")],
+    [Input("x-ray-graph", "figure")]
+)
+def update_output(n_clicks, figure):
+    if n_clicks > 0:
+        print_annotations(n_clicks, figure)
+        return "Annotations printed in the console."
 
-
+# osama 
+# TODO : clearing the steps
+# make a very simple app that take image (chest) and get sigmentation overlayed in it ----just this
 
 if __name__ == "__main__":
     app.run_server(debug=True, dev_tools_props_check=False)
