@@ -9,9 +9,25 @@ import numpy as np
 from PIL import Image
 import plotly.express as px
 
+"""
+TODO :
+--------
+[x] - view image and mask
+[ ] - view every part of the mask with different color 
+[ ] - get good layout for portofolio
+[ ] - clean code (remove unneeded code - organize and document)
+[ ] - get the area of mask segments and view it 
+
+"""
+
+# pathes and configs
+image_path = "D:\\chest-x-ray.jpeg"
+onnx_model_path="D:\\Code_store\\CT-Viewer-tk\\unet-2v.onnx"
+
+
+
 
 #getting image
-image_path = "D:\\chest-x-ray.jpeg"
 x_ray_image = Image.open(image_path)
 x_ray_image = np.array(x_ray_image.resize((512, 512)))
 image_shape = x_ray_image.shape
@@ -62,13 +78,42 @@ config = {
 }
 
 
-# Define the image card layout
 image_card = dbc.Card(
     [
-        dbc.CardHeader("X-Ray"),
+        dbc.CardHeader("X-Ray Image"),
         dbc.CardBody([
             dcc.Graph(
-                id='x-ray-graph',  # Set an ID for the graph
+                id='input_image_id',  # Set an ID for the graph
+                figure=x_ray_fig_px,
+                responsive ='auto',
+                style={'width': '100%', 'height': '100%'},
+                config=config  # Enable shape editing
+                    ),
+                ]),
+        dbc.Button("Show Mask", id="show-mask-button", color="primary", className="mr-1", n_clicks=0),
+            
+        dbc.CardFooter(
+            [
+                html.H6("Step 1: Draw a rough outline that encompasses all ground glass occlusions."),
+                dbc.Tooltip(
+                    "Use the slider to scroll vertically through the image and look for the ground glass occlusions.",
+                    target="x-ray-slider",  # Ensure this matches the ID of the target element
+                ),
+            ]
+        ),
+    ],
+    style={'width': '100%', 'height': '100%'}  # Set card width to 100% and height to 100vh (viewport height)
+)
+
+
+
+# Define the mask card layout
+mask_image_card = dbc.Card(
+    [
+        dbc.CardHeader("X-Ray mask"),
+        dbc.CardBody([
+            dcc.Graph(
+                id='mask_image_id',  # Set an ID for the graph
                 figure=x_ray_figure,
                 responsive ='auto',
                 config=config  # Enable shape editing
@@ -95,33 +140,6 @@ image_card = dbc.Card(
     style={'width': '100%', 'height': '100%'}  # Set card width to 100% and height to 100vh (viewport height)
 )
 
-
-mask_image_card = dbc.Card(
-    [
-        dbc.CardHeader("X-Ray"),
-        dbc.CardBody([
-            dcc.Graph(
-                id='x-ray-mask',  # Set an ID for the graph
-                figure=x_ray_fig_px,
-                responsive ='auto',
-                style={'width': '100%', 'height': '100%'},
-                config=config  # Enable shape editing
-                    ),
-                ]),
-        dbc.Button("Show Mask", id="show-mask-button", color="primary", className="mr-1", n_clicks=0),
-            
-        dbc.CardFooter(
-            [
-                html.H6("Step 1: Draw a rough outline that encompasses all ground glass occlusions."),
-                dbc.Tooltip(
-                    "Use the slider to scroll vertically through the image and look for the ground glass occlusions.",
-                    target="x-ray-slider",  # Ensure this matches the ID of the target element
-                ),
-            ]
-        ),
-    ],
-    style={'width': '100%', 'height': '100%'}  # Set card width to 100% and height to 100vh (viewport height)
-)
 
 ###########################
 # helper functions 
@@ -177,7 +195,7 @@ def show_mask_on_image(image_path,onnx_model_path):
 # Define callback to print something when the button is clicked
 @app.callback(
     Output("print-output", "children"),
-    [Input("x-ray-graph", "relayoutData")],
+    [Input("mask_image_id", "relayoutData")],
     prevent_initial_call=True,
 )
 def update_output(relayout_data):
@@ -192,40 +210,31 @@ def update_output(relayout_data):
 
 
 
-onnx_model_path="D:\\Code_store\\CT-Viewer-tk\\unet-2v.onnx"
+
 # Callback to update mask overlay when button is clicked
 @app.callback(
-    Output('x-ray-mask', 'figure'),
+    Output('mask_image_id', 'figure'),
     [Input('show-mask-button', 'n_clicks')],
-    [State('x-ray-mask', 'figure')]
+    [State('mask_image_id', 'figure')]
     
 )
 def update_mask_overlay(n_clicks,current_figure):
     if n_clicks > 0:
         # Update the figure data with mask overlay
         output_mask = show_mask_on_image(image_path,onnx_model_path)
-        output_mask = np.squeeze(output_mask,axis=0) # removing first dim (batch dim)
-        output_mask = np.transpose(output_mask , (1,2,0)) #(512,512,2)--->(2,512,512)
-        
-        output_mask = np.mean(output_mask, axis=0, keepdims=True)
-        output_mask = np.squeeze(output_mask,axis=0) # removing first dim (batch dim)
-        
-        
-        print(f"generating mask 1...{output_mask.shape}.....")
-        
-        heatmap_data = go.Heatmap(z=output_mask, opacity=0.5, colorscale='Viridis')
+        output_mask=output_mask.reshape((2, 512, 512))
+        # Compute softmax along the appropriate axis
+        output_mask = np.exp(output_mask) / np.sum(np.exp(output_mask), axis=0)
+        # Find the index of the maximum value along the specified axis (e.g., axis=1 for channels)
+        output_mask = np.argmax(output_mask, axis=0)
+
+        heatmap_data = go.Heatmap(z=output_mask, opacity=0.5, colorscale='Hot')
         layout = go.Layout(title='X-ray with Mask Overlay')
-        updated_figure = go.Figure(data=[heatmap_data], layout=layout)
+        layout['yaxis'] = dict(scaleanchor="x", scaleratio=1, autorange='reversed')
+        updated_figure = go.Figure(data= current_figure['data'] , layout=layout)
         
-        print("generating mask 2........")
-        
-        #relayout_data[""]
-        # x_ray_fig_px.update_layout(images=[dict(source=output_mask,binary_string=True)])
-        # print("generating mask 3........")
-        
-        # Add your mask overlay logic here
-        # For example, if you have a pre-computed mask array, you can add it as a heatmap to the figure
-        # updated_fig.add_heatmap(z=mask_array, opacity=0.5, colorscale='Viridis')
+
+
         return updated_figure
     else:
         return current_figure
