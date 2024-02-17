@@ -8,6 +8,7 @@ import json
 import numpy as np
 from PIL import Image
 import plotly.express as px
+import datetime
 
 """
 TODO :
@@ -51,8 +52,8 @@ x_ray_figure.add_layout_image(layer="below",sizing="stretch",source=image_path,
     y=1,
     xref="x",
     yref="y",
-    sizex=10,
-    sizey=10,)
+    sizex=12,
+    sizey=12,)
 
 x_ray_figure.update_layout(
     width=image_shape[0] * 1.5,
@@ -141,6 +142,41 @@ mask_image_card = dbc.Card(
 )
 
 
+upload_image_card=dbc.Card(
+    [
+        dcc.Upload(
+        id='upload-image',
+        children=html.Div([
+            'Drag and Drop or ',
+            html.A('Select Files')
+            ]),
+        style={
+            'width': '100%',
+            'height': '60px',
+            'lineHeight': '60px',
+            'borderWidth': '1px',
+            'borderStyle': 'dashed',
+            'borderRadius': '5px',
+            'textAlign': 'center',
+            'margin': '10px'
+            },
+        # Allow multiple files to be uploaded
+        multiple=True),
+        html.Div(id='output-image-upload')
+    ])
+
+
+####################
+# Define app layout
+app.layout = html.Div(
+    [
+        dbc.Row([dbc.Col(image_card, width=5),dbc.Col(mask_image_card, width=5)]),
+        dbc.Row([dbc.Col(upload_image_card, width=5),])
+        
+    ]
+)
+
+
 ###########################
 # helper functions 
 ###########################
@@ -190,6 +226,23 @@ def show_mask_on_image(image_path,onnx_model_path):
     return output_mask
 
 
+
+# def parse_uploaded_image(contents, filename, date):
+#     return html.Div([
+#         html.H5(filename),
+#         html.H6(datetime.datetime.fromtimestamp(date)),
+
+#         # HTML images accept base64 encoded strings in the same format
+#         # that is supplied by the upload
+#         html.Img(src=contents),
+#         html.Hr(),
+#         html.Div('Raw Content'),
+#         html.Pre(contents[0:200] + '...', style={
+#             'whiteSpace': 'pre-wrap',
+#             'wordBreak': 'break-all'
+#         })
+#     ])
+
 ###########################
 #Callbacks
 # Define callback to print something when the button is clicked
@@ -216,7 +269,6 @@ def update_output(relayout_data):
     Output('mask_image_id', 'figure'),
     [Input('show-mask-button', 'n_clicks')],
     [State('mask_image_id', 'figure')]
-    
 )
 def update_mask_overlay(n_clicks,current_figure):
     if n_clicks > 0:
@@ -228,12 +280,15 @@ def update_mask_overlay(n_clicks,current_figure):
         # Find the index of the maximum value along the specified axis (e.g., axis=1 for channels)
         output_mask = np.argmax(output_mask, axis=0)
 
-        heatmap_data = go.Heatmap(z=output_mask, opacity=0.5, colorscale='Hot')
-        layout = go.Layout(title='X-ray with Mask Overlay')
-        layout['yaxis'] = dict(scaleanchor="x", scaleratio=1, autorange='reversed')
-        updated_figure = go.Figure(data= current_figure['data'] , layout=layout)
-        
+        alpha = output_mask*255 # Adjust transparency level
+        combined_data = np.stack([x_ray_image[:, :, 0], x_ray_image[:, :, 1], x_ray_image[:, :, 2], alpha], axis=2)
 
+        print(f"combined : {output_mask.shape} ,{combined_data.shape} ,{np.unique(combined_data)} ")
+
+        updated_figure = px.imshow(combined_data,
+                        zmin=0, zmax=255,
+                        color_continuous_scale='gray',  # Example color scale
+                        labels={'color': 'Heatmap Value'})
 
         return updated_figure
     else:
@@ -241,15 +296,18 @@ def update_mask_overlay(n_clicks,current_figure):
 
 
 
+# @callback(Output('input_image_id', 'figure'),
+#               Input('upload-image', 'contents'),
+#               State('upload-image', 'filename'),
+#               State('upload-image', 'last_modified'))
+# def update_output(list_of_contents, list_of_names, list_of_dates):
+#     if list_of_contents is not None:
+#         children = [
+#             parse_uploaded_image(c, n, d) for c, n, d in
+#             zip(list_of_contents, list_of_names, list_of_dates)]
+#         return children
 
-####################
-# Define app layout
-app.layout = html.Div([
-    dbc.Row([
-        dbc.Col(image_card, width=5),  # Place the first image card in a column of width 6
-        dbc.Col(mask_image_card, width=5)  # Place the second image card in a column of width 6
-    ])
-])
+
 
 
 
