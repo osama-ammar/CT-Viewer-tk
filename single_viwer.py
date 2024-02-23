@@ -9,11 +9,14 @@ import numpy as np
 from PIL import Image
 import plotly.express as px
 import datetime
-
+import base64
+from PIL import Image
+import io
 """
 TODO :
 --------
 [x] - view image and mask
+[x] - import images
 [ ] - view every part of the mask with different color 
 [ ] - get good layout for portofolio
 [ ] - clean code (remove unneeded code - organize and document)
@@ -277,13 +280,15 @@ def update_mask_overlay(n_clicks,current_figure):
         output_mask=output_mask.reshape((2, 512, 512))
         # Compute softmax along the appropriate axis
         output_mask = np.exp(output_mask) / np.sum(np.exp(output_mask), axis=0)
-        # Find the index of the maximum value along the specified axis (e.g., axis=1 for channels)
+        # Find the index of the maximum value along the specified axis 
         output_mask = np.argmax(output_mask, axis=0)
+        alpha = output_mask*80 # Adjust trasnsparency level
+        alpha[alpha==0]=255
+        combined_data = np.stack([x_ray_image[:, :, 0], x_ray_image[:, :, 1], x_ray_image[:, :, 2],alpha], axis=2)
+        #combined_data[output_mask==1]=(0, 0, 0,128)
 
-        alpha = output_mask*255 # Adjust transparency level
-        combined_data = np.stack([x_ray_image[:, :, 0], x_ray_image[:, :, 1], x_ray_image[:, :, 2], alpha], axis=2)
 
-        print(f"combined : {output_mask.shape} ,{combined_data.shape} ,{np.unique(combined_data)} ")
+        print(f"combined : {x_ray_image.shape} , {output_mask.shape} ,{combined_data.shape} ,{np.unique(combined_data)} ")
 
         updated_figure = px.imshow(combined_data,
                         zmin=0, zmax=255,
@@ -296,20 +301,39 @@ def update_mask_overlay(n_clicks,current_figure):
 
 
 
-# @callback(Output('input_image_id', 'figure'),
-#               Input('upload-image', 'contents'),
-#               State('upload-image', 'filename'),
-#               State('upload-image', 'last_modified'))
-# def update_output(list_of_contents, list_of_names, list_of_dates):
-#     if list_of_contents is not None:
-#         children = [
-#             parse_uploaded_image(c, n, d) for c, n, d in
-#             zip(list_of_contents, list_of_names, list_of_dates)]
-#         return children
+def load_and_preprocess(image):
+   image1 = Image.open(image)
+   rgb =  Image.new('RGB', image1.size)
+   rgb.paste(image1)
+   image = rgb
+   test_image = image.resize((512,512))
+   return test_image
 
 
 
 
+    
+
+@app.callback(
+    Output('input_image_id', 'figure'),
+    [Input('upload-image', 'contents')],
+    [State('input_image_id', 'figure')]
+)
+def update_output(list_of_contents, current_figure):
+    if list_of_contents is not None:
+        _, content_string = list_of_contents[0].split(',')
+        image_bytes = base64.b64decode(content_string)
+
+        # Load the image data into a PIL Image object
+        image = Image.open(io.BytesIO(image_bytes))
+        updated_figure = px.imshow(image,
+                        zmin=0, zmax=255,
+                        color_continuous_scale='gray',  # Example color scale
+                        labels={'color': 'Heatmap Value'})
+
+        return updated_figure
+    else:
+        return current_figure
 
 
 ###################
