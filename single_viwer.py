@@ -17,6 +17,7 @@ TODO :
 --------
 [x] - view image and mask
 [x] - import images
+[/] - understand plotly
 [ ] - view every part of the mask with different color 
 [ ] - get good layout for portofolio
 [ ] - clean code (remove unneeded code - organize and document)
@@ -35,7 +36,7 @@ onnx_model_path="D:\\Code_store\\CT-Viewer-tk\\unet-2v.onnx"
 x_ray_image = Image.open(image_path)
 x_ray_image = np.array(x_ray_image.resize((512, 512)))
 image_shape = x_ray_image.shape
-print("Image shape:", image_shape)
+
 
 # image in px
 x_ray_fig_px = px.imshow(x_ray_image, binary_string=True)
@@ -193,13 +194,25 @@ def print_annotations(n_clicks, figure):
         else:
             print("No annotations found.")
 
-#prepare input image for model inference
-def prepare_model_input(img_path):
-    # Load the image and resize it
-    input_image = Image.open(img_path)
 
-    input_image = np.array(input_image.resize((512, 512)))
+
+def base64_to_array(base64_string):
+    image_data = base64.b64decode(base64_string)
+    image_data=Image.open(io.BytesIO(image_data))
+    return np.array(image_data)
+
+
+
+#prepare input image for model inference
+def prepare_model_input(input_image):
+    # Load the image and resize it
+    #input_image = Image.open(img_path)
+    #print(f"input_image 2 {input_image.shape}")
+    
+    #input_image=np.expand_dims(input_image, axis=2)
+
     input_image=np.transpose(input_image, (2, 0, 1))
+    print(f"input_image 2 {input_image.shape}")
     #print(input_image.shape)
     # Convert to NumPy array and normalize pixel values
     input_image = input_image.astype(np.float32) / 255.0
@@ -222,8 +235,8 @@ def model_inference(onnx_model_path , input_array):
     return ort_output
 
 
-def show_mask_on_image(image_path,onnx_model_path):
-    input_image=prepare_model_input(image_path)
+def show_mask_on_image(input_image,onnx_model_path):
+    input_image=prepare_model_input(input_image)
     output_mask = model_inference(onnx_model_path , input_image)
     #print(output_mask.shape)
     return output_mask
@@ -266,17 +279,34 @@ def update_output(relayout_data):
 
 
 
-
+import cv2
 # Callback to update mask overlay when button is clicked
 @app.callback(
     Output('mask_image_id', 'figure'),
     [Input('show-mask-button', 'n_clicks')],
-    [State('mask_image_id', 'figure')]
+    [State('input_image_id', 'figure')]
 )
 def update_mask_overlay(n_clicks,current_figure):
     if n_clicks > 0:
-        # Update the figure data with mask overlay
-        output_mask = show_mask_on_image(image_path,onnx_model_path)
+        
+        print(f"current_figure['data'][0] : {current_figure['data'][0].keys()}")
+        # TODO : Handling all images inputs (png , jpg , npy....)
+        if 'z' in current_figure['data'][0].keys():
+            # mostly one channel images in alist format
+            input_image = np.array(current_figure['data'][0]['z']).reshape(512,512)
+            input_image=np.expand_dims(input_image, axis=2)
+            print("upload_image ....",input_image.shape)        
+            input_image = np.repeat(input_image, 3, axis=2)
+            output_mask = show_mask_on_image(input_image,onnx_model_path)
+            
+        else:
+            print("using 64-encoded image ") 
+            #print(len(current_figure['data'][0]['source'][22:-1]+"=")/4)
+            input_image= base64_to_array(current_figure['data'][0]['source'][22:-1]+"=") #to pad encoded string .. making it divisible by 4
+            print("input_image ....",input_image.shape)
+            # Update the figure data with mask overlay
+            output_mask = show_mask_on_image(input_image,onnx_model_path)
+
         output_mask=output_mask.reshape((2, 512, 512))
         # Compute softmax along the appropriate axis
         output_mask = np.exp(output_mask) / np.sum(np.exp(output_mask), axis=0)
@@ -284,11 +314,12 @@ def update_mask_overlay(n_clicks,current_figure):
         output_mask = np.argmax(output_mask, axis=0)
         alpha = output_mask*80 # Adjust trasnsparency level
         alpha[alpha==0]=255
-        combined_data = np.stack([x_ray_image[:, :, 0], x_ray_image[:, :, 1], x_ray_image[:, :, 2],alpha], axis=2)
+        #image_data = np.repeat(image_data[:, :, np.newaxis], 3, axis=2) #
+        print(f"original image ; {x_ray_image.shape}")
+        combined_data = np.stack([input_image[:, :, 0], input_image[:, :, 1], input_image[:, :, 2],alpha], axis=2)
         #combined_data[output_mask==1]=(0, 0, 0,128)
 
-
-        print(f"combined : {x_ray_image.shape} , {output_mask.shape} ,{combined_data.shape} ,{np.unique(combined_data)} ")
+        #print(f"combined : {x_ray_image.shape} ,{image_data.shape} , {output_mask.shape}  ")
 
         updated_figure = px.imshow(combined_data,
                         zmin=0, zmax=255,
@@ -326,6 +357,8 @@ def update_output(list_of_contents, current_figure):
 
         # Load the image data into a PIL Image object
         image = Image.open(io.BytesIO(image_bytes))
+        image = np.array(image.resize((512, 512)))
+        #print(f"image.shape{image.shape}" )
         updated_figure = px.imshow(image,
                         zmin=0, zmax=255,
                         color_continuous_scale='gray',  # Example color scale
