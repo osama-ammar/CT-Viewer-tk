@@ -1,4 +1,4 @@
-import cv2
+
 import onnxruntime
 import dash
 from dash.dependencies import Input, Output, State
@@ -14,6 +14,8 @@ import datetime
 import base64
 from PIL import Image
 import io
+from dash_bootstrap_templates import load_figure_template
+load_figure_template('SUPERHERO')
 """
 TODO :
 --------
@@ -71,7 +73,7 @@ x_ray_figure.update_layout(
 ##############################
 # Define your Dash app
 #############################
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.SUPERHERO])
 
 config = {
     "modeBarButtonsToAdd": [
@@ -202,10 +204,8 @@ upload_image_card = dbc.Card(
 
 app.layout = html.Div(
     [
-        dbc.Row([dbc.Col(image_card, width=5),
-                dbc.Col(mask_image_card, width=5)]),
-        dbc.Row([dbc.Col(upload_image_card, width=5),])
-
+        dbc.Row([dbc.Col(image_card, width=5), dbc.Col(mask_image_card, width=5)]),
+        dbc.Row([dbc.Col(upload_image_card, width=5)])
     ]
 )
 
