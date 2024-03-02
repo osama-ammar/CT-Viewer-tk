@@ -20,7 +20,7 @@ TODO :
 [x] - view image and mask
 [x] - import images
 [/] - understand plotly
-[ ] - view every part of the mask with different color 
+[/] - view every part of the mask with different color 
 [ ] - get good layout for portofolio
 [ ] - clean code (remove unneeded code - organize and document)
 [ ] - get the area of mask segments and view it 
@@ -93,17 +93,35 @@ image_card = dbc.Card(
                 id='input_image_id',  # Set an ID for the graph
                 figure=x_ray_fig_px,
                 responsive='auto',
-                style={'width': '100%', 'height': '100%'},
+                style={'width': '100%', 'height': '100%', 'margin': 'auto', 'display': 'block'},  # Center the image
                 config=config  # Enable shape editing
             ),
         ]),
+        
+        dcc.Dropdown(
+            [
+                {
+                    "label": html.Span(['Lung'], style={'color': 'Black', 'font-size': 20}),
+                    "value": "Lung",
+                },
+                {
+                    "label": html.Span(['Chest'], style={'color': 'Black', 'font-size': 20}),
+                    "value": "Chest",
+                },
+                {
+                    "label": html.Span(['Bones'], style={'color': 'Black', 'font-size': 20}),
+                    "value": "Bones",
+                },
+            ], value='Montreal'
+        ),   
+        
         dbc.Button("Show Mask", id="show-mask-button",
                    color="primary", className="mr-1", n_clicks=0),
 
         dbc.CardFooter(
             [
                 html.H6(
-                    "Step 1: Draw a rough outline that encompasses all ground glass occlusions."),
+                    "import an X-Ray image and press show mask"),
                 dbc.Tooltip(
                     "Use the slider to scroll vertically through the image and look for the ground glass occlusions.",
                     target="x-ray-slider",  # Ensure this matches the ID of the target element
@@ -112,7 +130,7 @@ image_card = dbc.Card(
         ),
     ],
     # Set card width to 100% and height to 100vh (viewport height)
-    style={'width': '100%', 'height': '100%'}
+    style={'width': '100%', 'height': '100%','display': 'flex', 'justify-content': 'center'}
 )
 
 
@@ -123,7 +141,7 @@ mask_image_card = dbc.Card(
         dbc.CardBody([
             dcc.Graph(
                 id='mask_image_id',  # Set an ID for the graph
-                figure=x_ray_figure,
+                #figure=x_ray_figure,
                 responsive='auto',
                 config=config  # Enable shape editing
             ),
@@ -141,7 +159,7 @@ mask_image_card = dbc.Card(
         dbc.CardFooter(
             [
                 html.H6(
-                    "Step 1: Draw a rough outline that encompasses all ground glass occlusions."),
+                    "Chest X-Ray segmented image"),
                 dbc.Tooltip(
                     "Use the slider to scroll vertically through the image and look for the ground glass occlusions.",
                     target="x-ray-slider",  # Ensure this matches the ID of the target element
@@ -163,7 +181,7 @@ upload_image_card = dbc.Card(
                 html.A('Select Files')
             ]),
             style={
-                'width': '100%',
+                'width': '80%',
                 'height': '60px',
                 'lineHeight': '60px',
                 'borderWidth': '1px',
@@ -180,6 +198,8 @@ upload_image_card = dbc.Card(
 
 ####################
 # Define app layout
+####################
+
 app.layout = html.Div(
     [
         dbc.Row([dbc.Col(image_card, width=5),
@@ -215,7 +235,6 @@ def prepare_model_input(input_image):
     # Load the image and resize it
     #input_image = Image.open(img_path)
     #print(f"input_image 2 {input_image.shape}")
-
     #input_image=np.expand_dims(input_image, axis=2)
 
     input_image = np.transpose(input_image, (2, 0, 1))
@@ -249,25 +268,12 @@ def show_mask_on_image(input_image, onnx_model_path):
     return output_mask
 
 
-# def parse_uploaded_image(contents, filename, date):
-#     return html.Div([
-#         html.H5(filename),
-#         html.H6(datetime.datetime.fromtimestamp(date)),
 
-#         # HTML images accept base64 encoded strings in the same format
-#         # that is supplied by the upload
-#         html.Img(src=contents),
-#         html.Hr(),
-#         html.Div('Raw Content'),
-#         html.Pre(contents[0:200] + '...', style={
-#             'whiteSpace': 'pre-wrap',
-#             'wordBreak': 'break-all'
-#         })
-#     ])
-
-###########################
+#############
 # Callbacks
-# Define callback to print something when the button is clicked
+##############
+
+# Define callback to print shapes(rectangles , lassos...) when the button is clicked
 @app.callback(
     Output("print-output", "children"),
     [Input("mask_image_id", "relayoutData")],
@@ -285,8 +291,6 @@ def update_output(relayout_data):
 
 
 # Callback to update mask overlay when button is clicked
-
-
 @app.callback(
     Output('mask_image_id', 'figure'),
     [Input('show-mask-button', 'n_clicks')],
@@ -324,14 +328,13 @@ def update_mask_overlay(n_clicks, current_figure):
         output_mask = np.argmax(output_mask, axis=0)
         alpha = output_mask*80  # Adjust trasnsparency level
         alpha[alpha == 0] = 255
-        # image_data = np.repeat(image_data[:, :, np.newaxis], 3, axis=2) #
-        print(f"original image ; {x_ray_image.shape}")
+        #changing only onne channel of pixels 0 for red , 1 for green ,  2 for blue
+        # we zeroed 2 channels to make the third stand out
+        input_image[alpha==80 ,0]=0 
+        input_image[alpha==80 ,2]=0
         combined_data = np.stack(
             [input_image[:, :, 0], input_image[:, :, 1], input_image[:, :, 2], alpha], axis=2)
-        #combined_data[output_mask==1]=(0, 0, 0,128)
-
         #print(f"combined : {x_ray_image.shape} ,{image_data.shape} , {output_mask.shape}  ")
-
         updated_figure = px.imshow(combined_data,
                                    zmin=0, zmax=255,
                                    color_continuous_scale='gray',  # Example color scale
@@ -340,15 +343,6 @@ def update_mask_overlay(n_clicks, current_figure):
         return updated_figure
     else:
         return current_figure
-
-
-def load_and_preprocess(image):
-    image1 = Image.open(image)
-    rgb = Image.new('RGB', image1.size)
-    rgb.paste(image1)
-    image = rgb
-    test_image = image.resize((512, 512))
-    return test_image
 
 
 @app.callback(
