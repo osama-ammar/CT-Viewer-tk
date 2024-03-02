@@ -7,6 +7,14 @@ from scipy import ndimage
 
 import plotly.graph_objects as go
 import plotly.express as px
+import dash_vtk
+from dash_vtk.utils import to_mesh_state
+try:
+    # VTK 9+
+    from vtkmodules.vtkImagingCore import vtkRTAnalyticSource
+except ImportError:
+    # VTK =< 8
+    from vtk.vtkImagingCore import vtkRTAnalyticSource
 
 import dash
 from dash.dependencies import Input, Output, State
@@ -14,16 +22,38 @@ import dash_bootstrap_components as dbc
 from dash import  html
 from dash import  dcc
 from dash_slicer import VolumeSlicer
+import vtk 
 
 external_stylesheets = [dbc.themes.BOOTSTRAP]
 app = dash.Dash(__name__, update_title=None, external_stylesheets=external_stylesheets)
 server = app.server
 
 
-t1 = time()
 
-# ------------- I/O and data massaging ---------------------------------------------------
+# ------------- 3D ---------------------------------------------------
+def stl_to_dash_mesh(stl_path):
+    reader = vtk.vtkSTLReader()
+    reader.SetFileName(stl_path)
+    reader.Update()
+    dataset = reader.GetOutput()
+    # Convert the VTK dataset to a mesh state
+    mesh_state = to_mesh_state(dataset)
+    return mesh_state
 
+# Use VTK to get some data
+data_source = vtkRTAnalyticSource()
+data_source.Update()  # <= Execute source to produce an output
+dataset = data_source.GetOutput()
+# Use helper to get a mesh structure that can be passed as-is to a Mesh # RTData is the name of the field
+mesh_state = to_mesh_state(dataset)
+
+mesh_state=stl_to_dash_mesh('D:\\cbct.stl')
+content = dash_vtk.View([
+    dash_vtk.GeometryRepresentation([
+        dash_vtk.Mesh(state=mesh_state)
+    ]),
+])
+##############################################################################
 # Add argparse for command-line argument parsing
 import argparse
 
@@ -129,9 +159,6 @@ def largest_connected_component(mask):
     return labels == (np.argmax(sizes) + 1)
 
 
-t2 = time()
-print("initial calculations", t2 - t1)
-
 # ------------- Define App Layout ---------------------------------------------------
 axial_card = dbc.Card(
     [
@@ -214,71 +241,13 @@ histogram_card = dbc.Card(
     ]
 )
 
+
 mesh_card = dbc.Card(
-    [
-        dbc.CardHeader("3D mesh representation of the image data and annotation"),
-        dbc.CardBody([dcc.Graph(id="graph-helper", figure=fig_mesh)]),
-
-        
-    ]
-)
-
-
-
-
-image_card = dbc.Card(
-    [
-        dbc.CardHeader("X-Ray"),
-        dbc.CardBody([
-            dcc.Graph(figure=x_ray_fig_px,id='x-ray-graph',style={'width': '100%', 'height': '100%'})
-            # Add other dbc components as needed
-        ]),
-        dbc.Button("Print Something", id="print-button", color="primary", className="mr-1", n_clicks=0),
-        html.Div(id="print-output"),  # Placeholder for the output of the print function
-        dbc.CardFooter(
-            [
-                html.H6(
-                    [
-                        "Step 1: Draw a rough outline that encompasses all ground glass occlusions across ",
-                    ]
-                ),
-                dbc.Tooltip(
-                    "Use the slider to scroll vertically through the image and look for the ground glass occlusions.",
-                    target="tooltip-target-1",
-                ),
-            ]
-        ),
-    ]
-)
-
-
-# Access the children of the image_card
-children = image_card.children
-
-# Initialize variables to store image size and annotations
-image_size = None
-annotations = None
-
-# Iterate through the children to find the dcc.Graph component
-for child in children:
-    if isinstance(child, dcc.Graph):
-        # Get the figure object of the dcc.Graph component
-        figure = child.figure
-        
-        # Extract image size and annotations from the figure
-        layout = figure.get('layout', {})
-        image_size = layout.get('width'), layout.get('height')
-        annotations = figure.get('layout', {}).get('annotations')
-
-# Print image size and annotations
-print("Image size:", image_size)
-print("Annotations:", annotations)
-
-
-
-
-
-
+                        html.Div(
+                        style={"width": "100%", "height": "400px"},
+                        children=[content],
+                        )
+                    )
 
 
 # Define Modal
@@ -294,9 +263,7 @@ app.layout = html.Div(
         dbc.Container(
             [
                 dbc.Row([dbc.Col(axial_card), dbc.Col(saggital_card)]),
-                dbc.Row([dbc.Col(histogram_card), dbc.Col(mesh_card),]),
-                dbc.Row([dbc.Col(image_card), ]),
-                
+                dbc.Row([dbc.Col(histogram_card),dbc.Col(mesh_card)]),    
             ],
             fluid=True,
         ),
@@ -305,8 +272,6 @@ app.layout = html.Div(
     ],
 )
 
-t3 = time()
-print("layout definition", t3 - t2)
 
 
 # ------------- Define App Interactivity ---------------------------------------------------
