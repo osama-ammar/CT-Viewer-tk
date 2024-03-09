@@ -23,7 +23,7 @@ TODO :
 [x] - import images
 [/] - understand plotly
 [/] - view every part of the mask with different color 
-[ ] - get good layout for portofolio
+[/] - get good layout for portofolio
 [ ] - clean code (remove unneeded code - organize and document)
 [ ] - get the area of mask segments and view it 
 
@@ -36,7 +36,7 @@ onnx_model_path = "D:\\Code_store\\CT-Viewer-tk\\unet-2v.onnx"
 
 # getting image
 x_ray_image = Image.open(image_path)
-x_ray_image = np.array(x_ray_image.resize((512, 512)))
+x_ray_image = np.array(x_ray_image)
 image_shape = x_ray_image.shape
 
 
@@ -51,25 +51,6 @@ x_ray_fig_px.update_layout(
     newshape=dict(line=dict(color="cyan")),
 )
 
-#img in fig
-# Define your X-ray figure (replace this with your actual figure)
-x_ray_figure = go.Figure()
-x_ray_figure.add_layout_image(layer="below", sizing="stretch", source=image_path,
-                              x=0,
-                              y=1,
-                              xref="x",
-                              yref="y",
-                              sizex=12,
-                              sizey=12,)
-
-x_ray_figure.update_layout(
-    width=image_shape[0] * 1.5,
-    height=image_shape[0] * 1,
-    margin={"l": 0, "r": 0, "t": 0, "b": 0},
-    dragmode="drawrect",  # Enable rectangle annotation
-    # Set annotation line color to cyan
-    newshape=dict(line=dict(color="cyan")),
-)
 ##############################
 # Define your Dash app
 #############################
@@ -99,6 +80,7 @@ image_card = dbc.Card(
                 config=config  # Enable shape editing
             ),
         ]),
+        ###############################################################################
         
         dcc.Dropdown(
             [
@@ -116,9 +98,11 @@ image_card = dbc.Card(
                 },
             ], value='Montreal'
         ),   
+        ###############################################################################
         
         dbc.Button("Show Mask", id="show-mask-button",
                    color="primary", className="mr-1", n_clicks=0),
+        ###############################################################################
 
         dbc.CardFooter(
             [
@@ -130,9 +114,33 @@ image_card = dbc.Card(
                 ),
             ]
         ),
+        ###############################################################################
+        dcc.Upload(
+            id='upload-image',
+            children=html.Div([
+                'Drag and Drop or ',
+                html.A('Select Files')
+            ]),
+            style={
+                'width': '90%',
+                'height': '60px',
+                'lineHeight': '60px',
+                'borderWidth': '1px',
+                'borderStyle': 'dashed',
+                'borderRadius': '5px',
+                'textAlign': 'center',
+                'margin': '10px'
+            },
+            # Allow multiple files to be uploaded
+            multiple=True),
+        html.Div(id='output-image-upload')       
+                
+        
+        
     ],
     # Set card width to 100% and height to 100vh (viewport height)
-    style={'width': '100%', 'height': '100%','display': 'flex', 'justify-content': 'center'}
+    style={'width': '100%', 'height': 'auto', 'margin': 'auto'}
+
 )
 
 
@@ -145,7 +153,8 @@ mask_image_card = dbc.Card(
                 id='mask_image_id',  # Set an ID for the graph
                 #figure=x_ray_figure,
                 responsive='auto',
-                config=config  # Enable shape editing
+                config=config,  # Enable shape editing
+                style={'width': '100%', 'height': '100%', 'margin': 'auto', 'display': 'block'}
             ),
 
             dbc.Button("Print Annotations", id="print-button",
@@ -155,8 +164,7 @@ mask_image_card = dbc.Card(
             html.Div(id="annotations-data", style={'display': 'none'}),
 
             html.Div(id="print-output")
-
-
+        ##########################################################################
         ]),
         dbc.CardFooter(
             [
@@ -168,34 +176,14 @@ mask_image_card = dbc.Card(
                 ),
             ]
         ),
+
+        
     ],
     # Set card width to 100% and height to 100vh (viewport height)
-    style={'width': '100%', 'height': '100%'}
+    style={'width': '100%', 'height': 'auto', 'margin': 'auto'}
 )
 
 
-upload_image_card = dbc.Card(
-    [
-        dcc.Upload(
-            id='upload-image',
-            children=html.Div([
-                'Drag and Drop or ',
-                html.A('Select Files')
-            ]),
-            style={
-                'width': '80%',
-                'height': '60px',
-                'lineHeight': '60px',
-                'borderWidth': '1px',
-                'borderStyle': 'dashed',
-                'borderRadius': '5px',
-                'textAlign': 'center',
-                'margin': '10px'
-            },
-            # Allow multiple files to be uploaded
-            multiple=True),
-        html.Div(id='output-image-upload')
-    ])
 
 
 ####################
@@ -205,7 +193,6 @@ upload_image_card = dbc.Card(
 app.layout = html.Div(
     [
         dbc.Row([dbc.Col(image_card, width=5), dbc.Col(mask_image_card, width=5)]),
-        dbc.Row([dbc.Col(upload_image_card, width=5)])
     ]
 )
 
