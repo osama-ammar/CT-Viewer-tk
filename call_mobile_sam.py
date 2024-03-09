@@ -26,7 +26,7 @@ def onnx_process_image(image, input_point, input_box=None, input_label=None):
     predictor.set_image(image)
 
     image_embedding = predictor.get_image_embedding().cpu().numpy()
-    if input_box!=None:
+    if input_box.all()!=None:
         print("mob-SAM box mode")
         onnx_box_coords = input_box.reshape(2, 2)
         # Add a batch index, concatenate a padding point, and transform.
