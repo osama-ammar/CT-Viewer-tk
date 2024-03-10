@@ -15,7 +15,6 @@ import io
 
 import onnxruntime
 from call_mobile_sam import onnx_process_image
-
 load_figure_template('SUPERHERO')
 
 
@@ -36,16 +35,17 @@ TODO List:
 # pathes and configs
 image_path = "D:\\chest-x-ray.jpeg"
 onnx_model_path = "D:\\Code_store\\CT-Viewer-tk\\unet-2v.onnx"
-mask_trasnsparency = 70 
+mask_trasnsparency = 150
+
 
 # getting default image to be viewed
 x_ray_image = np.array(Image.open(image_path))
-x_ray_fig_px = px.imshow(x_ray_image, binary_string=True)
+x_ray_fig_px = px.imshow(x_ray_image)
 
 # Update layout to show the full size and enable annotations
 x_ray_fig_px.update_layout(
-                            width= x_ray_image.shape[0],   # Set width to image width
-                            height= x_ray_image.shape[1],  # Set height to image height
+                            width= 600,   # Set width to image width
+                            height= 600,  # Set height to image height
                             dragmode= "drawrect",          # Enable rectangle annotation
                             # Set annotation line color to cyan
                             newshape= dict(line=dict(color="cyan")),
@@ -64,9 +64,17 @@ config = {
         "drawcircle",
         "drawrect",
         "eraseshape",
-    ]
+    ],
+    'displaylogo': False
 }
 
+# to be used as default shape in case noe segmentation is done
+def blank_figure():
+    fig = go.Figure(go.Scatter(x=[], y=[]))
+    fig.update_layout(template=None)
+    fig.update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
+    fig.update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
+    return fig
 
 image_card = dbc.Card(
     [
@@ -84,25 +92,7 @@ image_card = dbc.Card(
                 config=config  # Enable shape editing
             ),
         ]),
-        ###############################################################################
-        # to be used letter to introducy many anatomical structures segmentations
-        dcc.Dropdown(
-            [
-                {
-                    "label": html.Span(['Lung'], style={'color': 'Black', 'font-size': 20}),
-                    "value": "Lung",
-                },
-                {
-                    "label": html.Span(['Chest'], style={'color': 'Black', 'font-size': 20}),
-                    "value": "Chest",
-                },
-                {
-                    "label": html.Span(['Bones'], style={'color': 'Black', 'font-size': 20}),
-                    "value": "Bones",
-                },
-            ], value='Montreal'
-        ),
-        
+
         ###########################################################
         dbc.Button("Show Mask", id="show-mask-button",
                    color="primary", className="mr-1", n_clicks=0),
@@ -146,14 +136,7 @@ image_card = dbc.Card(
 
 )
 
-# to be used as default shape in case noe segmentation is done
-def blank_figure():
-    fig = go.Figure(go.Scatter(x=[], y=[]))
-    fig.update_layout(template=None)
-    fig.update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
-    fig.update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
 
-    return fig
 
 
 # Define the mask card layout
@@ -216,11 +199,20 @@ app.layout = html.Div(
 # helper functions
 ###########################
 
-def base64_to_array(base64_string):
+def base64_to_array(base64_string,shape=None):
     image_data = base64.b64decode(base64_string)
     image_data = Image.open(io.BytesIO(image_data))
+    if shape:
+        image_data = image_data.resize(shape)
+        print("decoding image with resize ")
     return np.array(image_data)
 
+def image_1d_to_2d(image_1d):
+    input_image = np.array(image_1d).reshape(512, 512)
+    input_image = np.expand_dims(input_image, axis=2) #(512, 512) --> (512, 512, 1)
+    input_image = np.repeat(input_image, 3, axis=2) #(512, 512,1) --> (512, 512, 3)
+    return input_image
+    
 
 # prepare input image for model inference
 def prepare_model_input(input_image):
@@ -264,7 +256,7 @@ def show_mask_on_image(input_image, onnx_model_path):
      Input("print-annotation", "n_clicks")],
     prevent_initial_call=True,
 )
-def update_output(relayout_data, n_clicks):
+def get_annotations_data(relayout_data, n_clicks):
     if n_clicks > 0:
         if "shapes" in relayout_data:
             output_json = json.dumps(relayout_data["shapes"], indent=2)
@@ -286,15 +278,11 @@ def update_output(relayout_data, n_clicks):
 )
 def update_mask_overlay(n_clicks, current_figure):
     if n_clicks > 0:
-        # images in plotly dash figure re in ~ 2 formats as follows ....1D format or 64-encoded (image encoded as text)
+        # images in plotly dash figure in ~ 2 formats as follows ....1D format or 64-encoded (image encoded as text)
         if 'z' in current_figure['data'][0].keys():
             print("using normal image ")
-            # (current_figure['data'][0]['z']) is an image in a 1D format so we reshape it
-            input_image = np.array(current_figure['data'][0]['z']).reshape(512, 512)
-            input_image = np.expand_dims(input_image, axis=2)
-            input_image = np.repeat(input_image, 3, axis=2)
-            output_mask = show_mask_on_image(input_image, onnx_model_path)
-            #print(f"input Image : {input_image.size} , output mask : {output_mask.size}")
+            input_image = image_1d_to_2d(current_figure['data'][0]['z'])
+            output_mask = show_mask_on_image(input_image, onnx_model_path) ##(1,2,512, 512)
 
         else:
             print("using 64-encoded image ")
@@ -304,6 +292,7 @@ def update_mask_overlay(n_clicks, current_figure):
             # Update the figure data with mask overlay
             output_mask = show_mask_on_image(input_image, onnx_model_path)
 
+        print(f"input_image : {input_image.shape} , {output_mask.shape}")
         output_mask = output_mask.reshape((2, 512, 512))
         
         # Compute softmax along the appropriate axis
@@ -339,21 +328,19 @@ def update_mask_overlay(n_clicks, current_figure):
     prevent_initial_call=True
 )
 def show_sam_mask(n_clicks, relayout_data, current_figure):
+    #default values for mobile SAM point and boxes
+    input_point = np.array([[300, 350]])
+    input_box = np.array([200, 200, 300, 300])
+    input_label = np.array([1])
+
     if n_clicks > 0:
-        #default values for point and boxes
-        input_point = np.array([[300, 350]])
-        input_box = np.array([200, 200, 300, 300])
-        input_label = np.array([1])
-
-
         # check if shape is drawn
         if relayout_data != None and "shapes" in relayout_data:
-            if len(relayout_data["shapes"]) > 0:
-                [x1, x2, y1, y2] = [relayout_data["shapes"][0]['x0'],
-                                    relayout_data["shapes"][0]['y0'],
-                                    relayout_data["shapes"][0]['x1'],
-                                    relayout_data["shapes"][0]['y1']]
-                input_point = np.array([[x1, y1]]).astype(np.int32)
+            [x1, x2, y1, y2] = [relayout_data["shapes"][0]['x0'],
+                                relayout_data["shapes"][0]['y0'],
+                                relayout_data["shapes"][0]['x1'],
+                                relayout_data["shapes"][0]['y1']]
+            input_point = np.array([[x1, y1]]).astype(np.int32)
             [min_x, min_y, max_x, max_y] = [min(x1, x2) , min(y1, y2),max(x1, x2) , max(y1, y2)]
             input_box = np.array([[min_x, min_y, max_x, max_y]]).astype(np.int32)
 
@@ -363,25 +350,18 @@ def show_sam_mask(n_clicks, relayout_data, current_figure):
             input_point = np.array([[x1, y1]]).astype(np.int32)
             [min_x, min_y, max_x, max_y] = [min(x1, x2) , min(y1, y2),max(x1, x2) , max(y1, y2)]
             input_box = np.array([[min_x, min_y, max_x, max_y]]).astype(np.int32)
-            
-            print(input_point)
 
-
+        print(f"input_point  input_point {input_point}  ")
         # 'z' key here carries image info in plotly dash figure
         if 'z' in current_figure['data'][0].keys():
             print("using normal image ")
-            # mostly one channel images in alist format
-            input_image = np.array(
-                current_figure['data'][0]['z']).reshape(512, 512)
-            input_image = np.expand_dims(input_image, axis=2)
-            input_image = np.repeat(input_image, 3, axis=2)
-
+            # mostly one channel images in a list format
+            input_image = image_1d_to_2d(current_figure['data'][0]['z'])
             print(f"input Image sam : {input_image.shape} , output mask :")
-
             masks = onnx_process_image(input_image.astype(
                 np.float32), input_point,input_box=input_box, input_label=input_label)
-            #print(f"masks Image sam : {masks.shape} , {np.unique(masks)} ")
-            print(input_box)
+
+
         else:
             print("using 64-encoded image ")
             # to pad encoded string .. making it divisible by 4
@@ -391,18 +371,15 @@ def show_sam_mask(n_clicks, relayout_data, current_figure):
             masks = onnx_process_image(input_image.astype(
                 np.float32), input_point,input_box=input_box,input_label=input_label)
             
-            print(input_box)
+
             
-            
-        color = np.array([255, 255, 255, 40])
+        color = np.array([255, 255, 255, 100])
         h, w = masks.shape[-2:]
         masks = masks.reshape(h, w, 1) * color.reshape(1, 1, -1)
         #masks=np.argmax(masks, axis=2)
         masks[masks == 0] = 255
         combined_data = np.stack(
             [input_image[:, :, 0], input_image[:, :, 1], input_image[:, :, 2], masks[:, :, 3]], axis=2)
-
-            #print(f"masks Image sam : {masks.shape} , {combined_data.shape} ")
 
         updated_figure = px.imshow(combined_data,
                                    zmin=0, zmax=255,
@@ -417,19 +394,17 @@ def show_sam_mask(n_clicks, relayout_data, current_figure):
     [Input('upload-image', 'contents')],
     [State('input_image_id', 'figure')]
 )
-def update_output(list_of_contents, current_figure):
+def upload_image(list_of_contents, current_figure):
     if list_of_contents is not None:
-        _, content_string = list_of_contents[0].split(',')
-        image_bytes = base64.b64decode(content_string)
-        # Load the image data into a PIL Image object
-        image = Image.open(io.BytesIO(image_bytes))
-        image = np.array(image.resize((512, 512)))
-
+        _, base64_string = list_of_contents[0].split(',')
+        image = base64_to_array(base64_string,shape=(512, 512))
+        print(image.shape)
+        
         updated_figure = px.imshow(image,
                                    zmin=0, zmax=255,
                                    #height = image.size[0],
                                    #width = image.size[1],
-                                   color_continuous_scale='cyan',  # Example color scale
+                                   color_continuous_scale='gray',  # Example color scale
                                    labels={'color': 'Heatmap Value'})
 
         return updated_figure
