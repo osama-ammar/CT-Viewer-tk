@@ -45,7 +45,7 @@ x_ray_fig_px = px.imshow(x_ray_image)
 # Update layout to show the full size and enable annotations
 x_ray_fig_px.update_layout(
                             width= 600,   # Set width to image width
-                            height= 600,  # Set height to image height
+                            height= 500,  # Set height to image height
                             dragmode= "drawrect",          # Enable rectangle annotation
                             # Set annotation line color to cyan
                             newshape= dict(line=dict(color="cyan")),
@@ -189,8 +189,7 @@ mask_image_card = dbc.Card(
 ####################
 app.layout = html.Div(
     [
-        dbc.Row([dbc.Col(image_card, width=5),
-                dbc.Col(mask_image_card, width=5)]),
+        dbc.Row([dbc.Col(image_card, width=5),dbc.Col(mask_image_card, width=5)]),
     ]
 )
 
@@ -371,9 +370,8 @@ def show_sam_mask(n_clicks, relayout_data, current_figure):
             masks = onnx_process_image(input_image.astype(
                 np.float32), input_point,input_box=input_box,input_label=input_label)
             
-
             
-        color = np.array([255, 255, 255, 100])
+        color = np.array([255, 255, 255, mask_trasnsparency])
         h, w = masks.shape[-2:]
         masks = masks.reshape(h, w, 1) * color.reshape(1, 1, -1)
         #masks=np.argmax(masks, axis=2)
@@ -383,7 +381,7 @@ def show_sam_mask(n_clicks, relayout_data, current_figure):
 
         updated_figure = px.imshow(combined_data,
                                    zmin=0, zmax=255,
-                                   color_continuous_scale='gray',  # Example color scale
+                                   width= 600, height= 500, 
                                    labels={'color': 'Heatmap Value'})
 
         return updated_figure
