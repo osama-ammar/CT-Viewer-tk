@@ -1,8 +1,6 @@
 import numpy as np
 import cv2
 from mobile_sam import sam_model_registry, SamPredictor
-
-
 import onnxruntime
 
 
@@ -13,8 +11,6 @@ image = cv2.imread("D:\\chest-x-ray.jpeg")
 
 sam = sam_model_registry[model_type](checkpoint=checkpoint)
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-# input_point = np.array([[600, 350]])
-# input_box = np.array([210, 200, 350, 500])
 input_label = np.array([0])
 onnx_box_labels = np.array([2, 3])
 
