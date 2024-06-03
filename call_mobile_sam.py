@@ -4,7 +4,7 @@ from mobile_sam import sam_model_registry, SamPredictor
 import onnxruntime
 
 
-checkpoint = "D:/Code_store/MobileSAM/weights/mobile_sam.pt"
+checkpoint = "mobile_sam.pt"
 model_type = "vit_t"
 onnx_model_path = "sam_onnx_example.onnx"
 image = cv2.imread("D:\\chest-x-ray.jpeg")
