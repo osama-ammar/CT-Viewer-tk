@@ -26,6 +26,7 @@ class VolumeViewer:
         self.current_slice_index = 0
         self.window_level = 400  # Initial value, adjust as needed
         self.window_width = 1080  # Initial value, adjust as needed
+        self.view_mode = tk.StringVar(value="axial")  # Default to axial view
 
         # Add a button to open a 3D Numpy volume file
         self.open_volume_button = tk.Button(root, text="Open Volume", command=self.open_volume, bg='#555555', fg='white')
@@ -51,13 +52,13 @@ class VolumeViewer:
         
 
         # Add sliders for adjusting window level and window width
-        self.wl_scale = tk.Scale(root, from_=-1000, to=6000, orient=tk.VERTICAL, label="WL", command=self.update_wl,length=300)
-        self.ww_scale = tk.Scale(root, from_=1, to=6000, orient=tk.VERTICAL, label="WW", command=self.update_ww,length=300)
+        self.wl_scale = tk.Scale(root, from_=-1000, to=4000, orient=tk.VERTICAL, label="WL", command=self.update_wl,length=500)
+        self.ww_scale = tk.Scale(root, from_=1, to=4000, orient=tk.VERTICAL, label="WW", command=self.update_ww,length=500)
         self.ww_scale.pack(side=tk.RIGHT, padx=10, pady=10)
         self.wl_scale.pack(side=tk.RIGHT, padx=10, pady=10)
         
         # Add a slider for navigating through slices
-        self.slice_slider = tk.Scale(root, from_=0, to=1, orient=tk.VERTICAL, resolution=1, command=self.update_slice,length=300)
+        self.slice_slider = tk.Scale(root, from_=0, to=1, orient=tk.VERTICAL, resolution=1, command=self.update_slice,length=500)
         self.slice_slider.pack(side=tk.LEFT, padx=10, pady=10)
 
         # Bind mouse wheel event to update the displayed slice
@@ -65,6 +66,15 @@ class VolumeViewer:
 
         # Bind mouse motion event to update pixel values
         self.canvas.bind("<Motion>", self.update_pixel_values)
+        
+        # Add radio buttons for view modes (axial, sagittal, coronal)
+        self.view_frame = tk.Frame(root, bg='#333333')
+        self.view_frame.pack(side=tk.TOP, padx=10, pady=10)
+
+        tk.Radiobutton(self.view_frame, text="Axial", variable=self.view_mode, value="axial", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT)
+        tk.Radiobutton(self.view_frame, text="Sagittal", variable=self.view_mode, value="sagittal", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT)
+        tk.Radiobutton(self.view_frame, text="Coronal", variable=self.view_mode, value="coronal", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT)
+
         
     def open_volume(self):
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy")])
@@ -86,6 +96,7 @@ class VolumeViewer:
             self.slice_slider.set(0)
             self.update_slice(0)
 
+    # TODO : make normalization compatible wih different pixels ranges (0 to 1) | (0 to 255) |(-1000 to 5000)
     def normalize_volume(self,npy_volume):
         # Adjust window level and window width
         normalized_volume=npy_volume.copy()
@@ -99,7 +110,10 @@ class VolumeViewer:
             
         return normalized_volume
         
-
+    def update_view(self):
+        """Update the view based on the selected view mode."""
+        self.update_slice(self.current_slice_index)
+        
     def update_slice(self, val):
         self.current_slice_index = int(self.slice_slider.get())
         
@@ -107,14 +121,32 @@ class VolumeViewer:
             slice_to_show = self.image
         else :
             slice_to_show = self.volume[self.current_slice_index]
+        
+        
+        # Extract the appropriate slice based on the view mode
+        if self.view_mode.get() == "axial":
+            slice_to_show = self.volume[self.current_slice_index, :, :]
+        elif self.view_mode.get() == "sagittal":
+            slice_to_show = self.volume[:, :, self.current_slice_index]
+            slice_to_show = np.flipud(slice_to_show)
+        elif self.view_mode.get() == "coronal":
+            slice_to_show = self.volume[:, self.current_slice_index, :]
+            slice_to_show = np.flipud(slice_to_show)
+            
+            
             
         # Adjust window level and window width
         window_min = self.window_level - self.window_width / 2
         window_max = self.window_level + self.window_width / 2
 
+        # Ensure window_min is not greater than window_max (fix any bad configurations)
+        if window_min >= window_max:
+            window_min = 0
+            window_max = 255
+            
         # Clip values to the window level and width
         slice_to_show = np.clip(slice_to_show, window_min, window_max)
-        slice_to_show=(slice_to_show/window_max)*255
+        slice_to_show = 255 * (slice_to_show - window_min) / (window_max - window_min)
 
 
         # Convert NumPy array to PIL Image
