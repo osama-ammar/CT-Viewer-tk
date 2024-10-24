@@ -14,7 +14,7 @@ class VolumeViewer:
         self.root.title("3D Numpy Volume Viewer")
 
         # Set the initial dimensions of the window
-        self.root.geometry("900x800")  # Adjust the dimensions as needed
+        self.root.geometry("900x900")  # Adjust the dimensions as needed
         
         # Configure a dark background
         self.root.configure(bg='#333333')        
@@ -22,43 +22,52 @@ class VolumeViewer:
         
         # Initialize variables
         self.volume = None
-        self_image = None 
+        self.image = None 
         self.current_slice_index = 0
         self.window_level = 400  # Initial value, adjust as needed
-        self.window_width = 1080  # Initial value, adjust as needed
+        self.window_width = 2000  # Initial value, adjust as needed
         self.view_mode = tk.StringVar(value="axial")  # Default to axial view
 
-        # Add a button to open a 3D Numpy volume file
-        self.open_volume_button = tk.Button(root, text="Open Volume", command=self.open_volume, bg='#555555', fg='white')
-        self.open_volume_button.pack(side=tk.TOP, padx=10, pady=10)
 
+        # Create a frame for buttons
+        self.button_frame = tk.Frame(root, bg='#333333')
+        self.button_frame.pack(side=tk.TOP, padx=10, pady=10)
 
-        # Add a button to open a Numpy image file
-        self.open_image_button = tk.Button(root, text="Open Image", command=self.open_image, bg='#555555', fg='white')
-        self.open_image_button.pack(side=tk.TOP, padx=10, pady=10)
+        # Add buttons for opening volume and image (horizontal arrangement)
+        self.open_volume_button = tk.Button(self.button_frame, text="Open Volume", command=self.open_volume, bg='#555555', fg='white')
+        self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
 
-        # Add a button to export the volume as an STL file
-        self.export_stl_button = tk.Button(root, text="Export as STL", command=self.export_stl_vtk, bg='#555555', fg='white')
-        self.export_stl_button.pack(side=tk.LEFT, padx=10, pady=10)
+        self.open_image_button = tk.Button(self.button_frame, text="Open Image", command=self.open_image, bg='#555555', fg='white')
+        self.open_image_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.export_stl_button = tk.Button(self.button_frame, text="Export as STL", command=self.export_stl_vtk, bg='#555555', fg='white')
+        self.export_stl_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Add radio buttons for view modes (axial, sagittal, coronal)
+        tk.Radiobutton(self.button_frame, text="Axial", variable=self.view_mode, value="axial", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT, padx=5, pady=5)
+        tk.Radiobutton(self.button_frame, text="Sagittal", variable=self.view_mode, value="sagittal", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT, padx=5, pady=5)
+        tk.Radiobutton(self.button_frame, text="Coronal", variable=self.view_mode, value="coronal", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.show_3d = tk.Button(self.button_frame, text="Show 3D", command=self.open_3d_view, bg='#555555', fg='white')
+        self.show_3d.pack(side=tk.LEFT, padx=5, pady=5)
 
 
         # Create Tkinter Canvas
         self.canvas = tk.Canvas(root, bg='#222222')  # Set canvas background color
         self.canvas.pack(side=tk.LEFT, padx=10, pady=10)
-        
+
         # Label to display pixel values
-        self.pixel_value_label = tk.Label(root, text="Pixel Value: ")
+        self.pixel_value_label = tk.Label(root, text="Pixel Value: ", bg='#333333', fg='white')
         self.pixel_value_label.pack(side=tk.BOTTOM, padx=10, pady=10)
-        
 
         # Add sliders for adjusting window level and window width
-        self.wl_scale = tk.Scale(root, from_=-1000, to=4000, orient=tk.VERTICAL, label="WL", command=self.update_wl,length=500)
-        self.ww_scale = tk.Scale(root, from_=1, to=4000, orient=tk.VERTICAL, label="WW", command=self.update_ww,length=500)
+        self.wl_scale = tk.Scale(root, from_=-1000, to=4000, orient=tk.VERTICAL, label="WL", command=self.update_wl, length=400)
+        self.ww_scale = tk.Scale(root, from_=1, to=4000, orient=tk.VERTICAL, label="WW", command=self.update_ww, length=400)
         self.ww_scale.pack(side=tk.RIGHT, padx=10, pady=10)
         self.wl_scale.pack(side=tk.RIGHT, padx=10, pady=10)
-        
+
         # Add a slider for navigating through slices
-        self.slice_slider = tk.Scale(root, from_=0, to=1, orient=tk.VERTICAL, resolution=1, command=self.update_slice,length=500)
+        self.slice_slider = tk.Scale(root, from_=0, to=1, orient=tk.VERTICAL, resolution=1, command=self.update_slice, length=400)
         self.slice_slider.pack(side=tk.LEFT, padx=10, pady=10)
 
         # Bind mouse wheel event to update the displayed slice
@@ -67,13 +76,6 @@ class VolumeViewer:
         # Bind mouse motion event to update pixel values
         self.canvas.bind("<Motion>", self.update_pixel_values)
         
-        # Add radio buttons for view modes (axial, sagittal, coronal)
-        self.view_frame = tk.Frame(root, bg='#333333')
-        self.view_frame.pack(side=tk.TOP, padx=10, pady=10)
-
-        tk.Radiobutton(self.view_frame, text="Axial", variable=self.view_mode, value="axial", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT)
-        tk.Radiobutton(self.view_frame, text="Sagittal", variable=self.view_mode, value="sagittal", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT)
-        tk.Radiobutton(self.view_frame, text="Coronal", variable=self.view_mode, value="coronal", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT)
 
         
     def open_volume(self):
@@ -82,6 +84,12 @@ class VolumeViewer:
         if file_path:
             self.volume = np.load(file_path)
             self.current_slice_index = 0
+            
+            # Set specific window level and window width for the volume
+            # Update the window level and width sliders
+            self.wl_scale.set(self.window_level)
+            self.ww_scale.set(self.window_width)
+            
             self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
             self.slice_slider.set(0)
             self.update_slice(0)
@@ -161,52 +169,6 @@ class VolumeViewer:
         self.canvas.photo_image = photo_image  # Prevent the PhotoImage from being garbage collected
 
 
-    def export_stl_vtk(self):
-        if self.volume is not None:
-            file_path = filedialog.asksaveasfilename(defaultextension=".stl", filetypes=[("STL files", "*.stl")])
-
-            if file_path:
-                self.export_volume_as_stl_vtk(file_path)
-
-    def export_volume_as_stl_vtk(self, file_path):
-        if self.volume is not None:
-            # Create a VTK image data
-            vtk_image = vtk.vtkImageData()
-            vtk_image.SetDimensions(self.volume.shape[::-1])
-            vtk_image.SetSpacing(1, 1, 1)
-            vtk_image.SetOrigin(0, 0, 0)
-
-            # Copy the NumPy array to VTK image data
-            normalized_volume=self.normalize_volume(self.volume)
-            vtk_array = numpy_support.numpy_to_vtk(normalized_volume.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
-            vtk_image.GetPointData().SetScalars(vtk_array)
-
-            # threshold = vtk.vtkThreshold()
-            # threshold.SetInputData(vtk_image)
-            # threshold.ThresholdByLower(0)  # Adjust the threshold as needed
-            # threshold.Update()
-            # contour.SetInputData(threshold.GetOutput())
-
-            # Convert VTK image data to a VTK PolyData
-            contour = vtk.vtkMarchingCubes()
-            contour.SetInputData(vtk_image)
-            contour.ComputeNormalsOn()
-            contour.SetValue(0, 0.5)
-
-            # # Apply decimation to reduce the number of triangles
-            # decimation = vtk.vtkDecimatePro()
-            # decimation.SetInputConnection(contour.GetOutputPort())
-            # decimation.SetTargetReduction(0.9)  # Adjust the reduction factor as needed
-
-            # Write the STL file
-            stl_writer = vtk.vtkSTLWriter()
-            stl_writer.SetFileName(file_path)
-            stl_writer.SetInputConnection(contour.GetOutputPort())
-            stl_writer.Write()
-            
-            print(f"Volume exported as STL : {file_path}")
-
-
     def update_wl(self, val):
         self.window_level = int(self.wl_scale.get())
         self.update_slice(self.current_slice_index)
@@ -235,7 +197,87 @@ class VolumeViewer:
         self.slice_slider.set(self.current_slice_index)
         self.update_slice(self.current_slice_index)
 
+    def export_stl_vtk(self):
+        if self.volume is not None:
+            file_path = filedialog.asksaveasfilename(defaultextension=".stl", filetypes=[("STL files", "*.stl")])
 
+            if file_path:
+                self.export_volume_as_stl_vtk(file_path)
+
+    def export_volume_as_stl_vtk(self, file_path):
+        if self.volume is not None:
+            # Create a VTK image data
+            vtk_image = vtk.vtkImageData()
+            vtk_image.SetDimensions(self.volume.shape[::-1])
+            vtk_image.SetSpacing(1, 1, 1)
+            vtk_image.SetOrigin(0, 0, 0)
+
+            # Copy the NumPy array to VTK image data
+            normalized_volume=self.normalize_volume(self.volume)
+            vtk_array = numpy_support.numpy_to_vtk(normalized_volume.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
+            vtk_image.GetPointData().SetScalars(vtk_array)
+
+            # Convert VTK image data to a VTK PolyData
+            contour = vtk.vtkMarchingCubes()
+            contour.SetInputData(vtk_image)
+            contour.ComputeNormalsOn()
+            contour.SetValue(0, 0.5)
+
+            # Write the STL file
+            stl_writer = vtk.vtkSTLWriter()
+            stl_writer.SetFileName(file_path)
+            stl_writer.SetInputConnection(contour.GetOutputPort())
+            stl_writer.Write()
+            
+            print(f"Volume exported as STL : {file_path}")
+
+
+    def open_3d_view(self):
+        if self.volume is not None:
+            # Create a new window
+            self.new_window = tk.Toplevel(self.root)
+            self.new_window.title("3D Volume View")
+            self.new_window.geometry("800x600")
+
+            # Create a VTK renderer, render window, and interactor
+            renderer = vtk.vtkRenderer()
+            render_window = vtk.vtkRenderWindow()
+            render_window.AddRenderer(renderer)
+
+            # Create the interactor without passing the render window directly
+            render_window_interactor = vtk.vtkRenderWindowInteractor()
+            render_window_interactor.SetRenderWindow(render_window)
+            
+            # Create a VTK image data
+            vtk_image = vtk.vtkImageData()
+            vtk_image.SetDimensions(self.volume.shape[::-1])
+            vtk_image.SetSpacing(1, 1, 1)  # Set spacing according to your volume data
+            vtk_image.SetOrigin(0, 0, 0)
+
+            # Convert the NumPy array to VTK
+            vtk_array = numpy_support.numpy_to_vtk(self.volume.ravel(), deep=True, array_type=vtk.VTK_FLOAT)
+            vtk_image.GetPointData().SetScalars(vtk_array)
+
+            # Apply Marching Cubes algorithm to create a 3D mesh
+            contour = vtk.vtkMarchingCubes()
+            contour.SetInputData(vtk_image)
+            contour.SetValue(0, self.window_level)  # Using window level for the contour
+
+            # Create a mapper and actor for the mesh
+            mapper = vtk.vtkPolyDataMapper()
+            mapper.SetInputConnection(contour.GetOutputPort())
+
+            actor = vtk.vtkActor()
+            actor.SetMapper(mapper)
+
+            # Add the actor to the renderer
+            renderer.AddActor(actor)
+            renderer.SetBackground(0.0, 0.2, 0.1)  # Background color
+
+            render_window.SetSize(800, 600)
+            render_window.Render()
+            render_window_interactor.Initialize()
+            render_window_interactor.Start()
 
 if __name__ == "__main__":
     root = tk.Tk()
