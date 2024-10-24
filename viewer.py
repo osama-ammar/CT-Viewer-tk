@@ -272,7 +272,19 @@ class VolumeViewer:
 
             # Add the actor to the renderer
             renderer.AddActor(actor)
-            renderer.SetBackground(0.0, 0.2, 0.1)  # Background color
+            renderer.SetBackground(0.1, 0.1, 0.1)  # Background color
+
+            # Create slider to adjust the contour threshold
+            self.threshold_slider = tk.Scale(self.new_window, from_=0, to=255, orient=tk.HORIZONTAL, label="Threshold")
+            self.threshold_slider.set(self.window_level)  # Set to initial window level
+            self.threshold_slider.pack(side=tk.TOP, fill=tk.X)
+
+            # Bind slider to update mesh
+            self.threshold_slider.bind("<Motion>", lambda event: self.update_threshold(self.threshold_slider.get()))
+
+            # Add the slider to the VTK window
+            render_window_interactor.GetRenderWindow().AddRenderer(renderer)
+            
 
             render_window.SetSize(800, 600)
             render_window.Render()

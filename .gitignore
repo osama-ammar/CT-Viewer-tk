@@ -28,6 +28,8 @@ mlruns/*
 logs/*
 results/*
 visualizations/*
+build/
+dist/
 
 # tensorboard output
 events.*
