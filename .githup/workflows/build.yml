@@ -2,7 +2,7 @@ name: Build the viewer
 
 on:
   commit:
-    branches: [ master ]
+    branches: [ main ]
 
 
 jobs:
