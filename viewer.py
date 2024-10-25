@@ -2,11 +2,11 @@ import tkinter as tk
 from tkinter import filedialog
 import numpy as np
 from PIL import Image, ImageTk
-from stl import mesh  # Make sure to install the `numpy-stl` library
 import vtk
 print (vtk.__version__)
 from vtk.util import numpy_support
-
+import pydicom
+import os 
 
 class VolumeViewer:
     def __init__(self, root):
@@ -27,18 +27,21 @@ class VolumeViewer:
         self.window_level = 400  # Initial value, adjust as needed
         self.window_width = 2000  # Initial value, adjust as needed
         self.view_mode = tk.StringVar(value="axial")  # Default to axial view
-
+        self.volume_type = "npy"
 
         # Create a frame for buttons
         self.button_frame = tk.Frame(root, bg='#333333')
         self.button_frame.pack(side=tk.TOP, padx=10, pady=10)
 
         # Add buttons for opening volume and image (horizontal arrangement)
-        self.open_volume_button = tk.Button(self.button_frame, text="Open Volume", command=self.open_volume, bg='#555555', fg='white')
+        self.open_volume_button = tk.Button(self.button_frame, text="Open npy Volume", command=self.open_volume, bg='#555555', fg='white')
         self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
 
-        self.open_image_button = tk.Button(self.button_frame, text="Open Image", command=self.open_image, bg='#555555', fg='white')
+        self.open_image_button = tk.Button(self.button_frame, text="Open npy Image", command=self.open_image, bg='#555555', fg='white')
         self.open_image_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.open_dicom_button = tk.Button(self.button_frame, text="Open dicom", command=self.open_dicom_case, bg='#555555', fg='white')
+        self.open_dicom_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         self.export_stl_button = tk.Button(self.button_frame, text="Export as STL", command=self.export_stl_vtk, bg='#555555', fg='white')
         self.export_stl_button.pack(side=tk.LEFT, padx=5, pady=5)
@@ -79,7 +82,7 @@ class VolumeViewer:
 
         
     def open_volume(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy")])
+        file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy"), ("All Files", "*.*")])
         self.image=None
         if file_path:
             self.volume = np.load(file_path)
@@ -93,6 +96,45 @@ class VolumeViewer:
             self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
             self.slice_slider.set(0)
             self.update_slice(0)
+
+    def open_dicom_case(self):
+        
+        file_path = filedialog.askopenfilename(filetypes=[("Dicom files", "*.dcm")])
+        self.image=None
+        if file_path:
+            # List to hold the slices
+            slices = []
+            dicom_folder = os.path.dirname(os.path.abspath(file_path))
+            # Loop through all files in the given directory
+            for filename in os.listdir(dicom_folder):
+                # Construct the full file path
+                filepath = os.path.join(dicom_folder, filename)
+                
+                # Try to read the file as a DICOM file
+                try:
+                    dicom_file = pydicom.dcmread(filepath)
+                    slices.append(dicom_file)
+                except Exception as e:
+                    print(f"Could not read {filepath}: {e}")
+
+            # Sort the slices by the InstanceNumber (or another relevant attribute)
+            slices.sort(key=lambda s: int(s.InstanceNumber))
+
+            # Create a 3D NumPy array from the DICOM slices
+            self.volume =np.stack([s.pixel_array for s in slices])
+            self.current_slice_index = 0
+            
+            # Set specific window level and window width for the volume
+            # Update the window level and width sliders
+            self.wl_scale.set(self.window_level)
+            self.ww_scale.set(self.window_width)
+            
+            self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
+            self.slice_slider.set(0)
+            self.update_slice(0)
+        
+    
+        # later : return dicom info to be displayed laterwith the volume
 
     def open_image(self):
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy")])
@@ -134,12 +176,14 @@ class VolumeViewer:
         # Extract the appropriate slice based on the view mode
         if self.view_mode.get() == "axial":
             slice_to_show = self.volume[self.current_slice_index, :, :]
+            
         elif self.view_mode.get() == "sagittal":
             slice_to_show = self.volume[:, :, self.current_slice_index]
-            slice_to_show = np.flipud(slice_to_show)
+            slice_to_show = np.flipud(slice_to_show) if self.volume_type == "npy" else slice_to_show
+            
         elif self.view_mode.get() == "coronal":
             slice_to_show = self.volume[:, self.current_slice_index, :]
-            slice_to_show = np.flipud(slice_to_show)
+            slice_to_show = np.flipud(slice_to_show)  if self.volume_type == "npy" else slice_to_show
             
             
             
@@ -263,6 +307,20 @@ class VolumeViewer:
             contour.SetInputData(vtk_image)
             contour.SetValue(0, self.window_level)  # Using window level for the contour
 
+            # Create a color transfer function for realistic colors
+            color_transfer_function = vtk.vtkColorTransferFunction()
+            color_transfer_function.AddRGBPoint(0, 1.0, 1.0, 1.0)       # White for air
+            color_transfer_function.AddRGBPoint(128, 0.8, 0.5, 0.3)     # Light brown for fat
+            color_transfer_function.AddRGBPoint(200, 0.5, 0.5, 0.5)     # Grey for soft tissue
+            color_transfer_function.AddRGBPoint(255, 1.0, 0.0, 0.0)     # Red for blood
+
+            # Create a mapper and actor for the mesh
+            mapper = vtk.vtkPolyDataMapper()
+            mapper.SetInputConnection(contour.GetOutputPort())
+            mapper.SetLookupTable(color_transfer_function)  # Apply the color transfer function
+            mapper.SetScalarRange(0, 4000)  # Set scalar range
+
+
             # Create a mapper and actor for the mesh
             mapper = vtk.vtkPolyDataMapper()
             mapper.SetInputConnection(contour.GetOutputPort())
@@ -273,6 +331,7 @@ class VolumeViewer:
             # Add the actor to the renderer
             renderer.AddActor(actor)
             renderer.SetBackground(0.1, 0.1, 0.1)  # Background color
+
 
             # Create slider to adjust the contour threshold
             self.threshold_slider = tk.Scale(self.new_window, from_=0, to=255, orient=tk.HORIZONTAL, label="Threshold")
@@ -291,8 +350,11 @@ class VolumeViewer:
             render_window_interactor.Initialize()
             render_window_interactor.Start()
 
-if __name__ == "__main__":
+def main():
     root = tk.Tk()
     root.configure(bg='#333333')  # Set the overall background color
     volume_viewer = VolumeViewer(root)
     root.mainloop()
+
+if __name__ == "__main__":
+    main()  
