@@ -1,5 +1,12 @@
-# Simple CT Viewer 
+# Simple CT Viewer ![ct-scan(1)](https://github.com/user-attachments/assets/77cfe3c5-868e-4564-b7e5-eda55689983e)
+
 - making a simple visualization tool for CT volumes | images in many formate [ npy , dicom ....etc]
+
+
+![Captureaas](https://github.com/user-attachments/assets/57ab0a3f-fd13-4132-8f2e-76a23088e962)
+
+![Capturecdscs](https://github.com/user-attachments/assets/4f4265dc-cc24-4dd3-b834-237024f291de)
+
 
 ### TODOS
 - [/] accepting diom , npy , NIFTI , others ,images
