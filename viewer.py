@@ -3,10 +3,10 @@ from tkinter import filedialog
 import numpy as np
 from PIL import Image, ImageTk
 import vtk
-print (vtk.__version__)
-from vtkmodules.util import numpy_support
+from vtkmodules.util import numpy_support #very tricky issue (using vtkmodules.util insted of  vtk.util ) both will work but when converting to exe vtk.util will not work
 import pydicom
 import os 
+import pyvista as pv
 
 class VolumeViewer:
     def __init__(self, root):
@@ -28,7 +28,9 @@ class VolumeViewer:
         self.window_width = 2000  # Initial value, adjust as needed
         self.view_mode = tk.StringVar(value="axial")  # Default to axial view
         self.volume_type = "npy"
-
+        self.pyvista_mesh = None
+        
+        
         # Create a frame for buttons
         self.button_frame = tk.Frame(root, bg='#333333')
         self.button_frame.pack(side=tk.TOP, padx=10, pady=10)
@@ -135,6 +137,8 @@ class VolumeViewer:
             self.update_slice(0)
             print(self.volume.shape)
         
+        
+
     
         # later : return dicom info to be displayed laterwith the volume
 
@@ -254,6 +258,7 @@ class VolumeViewer:
                 self.export_volume_as_stl_vtk(file_path)
 
     def export_volume_as_stl_vtk(self, file_path):
+        
         if self.volume is not None:
             # Create a VTK image data
             vtk_image = vtk.vtkImageData()
@@ -277,94 +282,105 @@ class VolumeViewer:
             stl_writer.SetFileName(file_path)
             stl_writer.SetInputConnection(contour.GetOutputPort())
             stl_writer.Write()
-            
             print(f"Volume exported as STL : {file_path}")
 
 
     def open_3d_view(self):
-        if self.volume is not None:
-            # Create a new window
-            self.new_window = tk.Toplevel(self.root)
-            self.new_window.title("3D Volume View")
-            self.new_window.geometry("800x600")
+        
+        # pyvista
+        volume = pv.wrap(self.volume)
+        # Step 3: Plotting the volume
+        plotter = pv.Plotter()
+        # Using volume rendering with a custom color map
+        plotter.add_volume(volume,cmap="bone",opacity="sigmoid_9",show_scalar_bar=False)
+        # Optional: Set the camera view
+        plotter.view_yz()  # Change the view to your preference
+        # Step 4: Show the plot
+        plotter.show()
+                
+        # if self.volume is not None:
+        #     # Create a new window
+        #     self.new_window = tk.Toplevel(self.root)
+        #     self.new_window.title("3D Volume View")
+        #     self.new_window.geometry("800x600")
 
-            # Create a VTK renderer, render window, and interactor
-            renderer = vtk.vtkRenderer()
-            render_window = vtk.vtkRenderWindow()
-            render_window.AddRenderer(renderer)
+        #     # Create a VTK renderer, render window, and interactor
+        #     renderer = vtk.vtkRenderer()
+        #     render_window = vtk.vtkRenderWindow()
+        #     render_window.AddRenderer(renderer)
 
-            # Create the interactor without passing the render window directly
-            render_window_interactor = vtk.vtkRenderWindowInteractor()
-            render_window_interactor.SetRenderWindow(render_window)
+        #     # Create the interactor without passing the render window directly
+        #     render_window_interactor = vtk.vtkRenderWindowInteractor()
+        #     render_window_interactor.SetRenderWindow(render_window)
             
-            # Create a VTK image data
-            vtk_image = vtk.vtkImageData()
-            vtk_image.SetDimensions(self.volume.shape[::-1])
-            vtk_image.SetSpacing(1, 1, 1)  # Set spacing according to your volume data
-            vtk_image.SetOrigin(0, 0, 0)
+        #     # Create a VTK image data
+        #     vtk_image = vtk.vtkImageData()
+        #     vtk_image.SetDimensions(self.volume.shape[::-1])
+        #     vtk_image.SetSpacing(1, 1, 1)  # Set spacing according to your volume data
+        #     vtk_image.SetOrigin(0, 0, 0)
 
-            # very Fast but have issues when builded to exe
-            # Convert the NumPy array to VTK
-            vtk_array = numpy_support.numpy_to_vtk(self.volume.ravel(), deep=True, array_type=vtk.VTK_FLOAT)
+        #     # very Fast but have issues when builded to exe
+        #     # Convert the NumPy array to VTK
+        #     vtk_array = numpy_support.numpy_to_vtk(self.volume.ravel(), deep=True, array_type=vtk.VTK_FLOAT)
             
-            # Very slow but working
-            # flattened_data=self.volume.ravel()
-            # vtk_array = vtk.vtkFloatArray()
-            # vtk_array.SetNumberOfValues(len(flattened_data))
-            # # Populate the vtkArray with data from Numpy array
-            # for i in range(len(flattened_data)):
-            #     vtk_array.SetValue(i, flattened_data[i])
+        #     # Very slow but working
+        #     # flattened_data=self.volume.ravel()
+        #     # vtk_array = vtk.vtkFloatArray()
+        #     # vtk_array.SetNumberOfValues(len(flattened_data))
+        #     # # Populate the vtkArray with data from Numpy array
+        #     # for i in range(len(flattened_data)):
+        #     #     vtk_array.SetValue(i, flattened_data[i])
 
                         
-            vtk_image.GetPointData().SetScalars(vtk_array)
+        #     vtk_image.GetPointData().SetScalars(vtk_array)
 
-            # Apply Marching Cubes algorithm to create a 3D mesh
-            contour = vtk.vtkMarchingCubes()
-            contour.SetInputData(vtk_image)
-            contour.SetValue(0, self.window_level)  # Using window level for the contour
+        #     # Apply Marching Cubes algorithm to create a 3D mesh
+        #     contour = vtk.vtkMarchingCubes()
+        #     contour.SetInputData(vtk_image)
+        #     contour.SetValue(0, self.window_level)  # Using window level for the contour
 
-            # Create a color transfer function for realistic colors
-            color_transfer_function = vtk.vtkColorTransferFunction()
-            color_transfer_function.AddRGBPoint(0, 1.0, 1.0, 1.0)       # White for air
-            color_transfer_function.AddRGBPoint(128, 0.8, 0.5, 0.3)     # Light brown for fat
-            color_transfer_function.AddRGBPoint(200, 0.5, 0.5, 0.5)     # Grey for soft tissue
-            color_transfer_function.AddRGBPoint(255, 1.0, 0.0, 0.0)     # Red for blood
+        #     # Create a color transfer function for realistic colors
+        #     color_transfer_function = vtk.vtkColorTransferFunction()
+        #     color_transfer_function.AddRGBPoint(0, 1.0, 1.0, 1.0)       # White for air
+        #     color_transfer_function.AddRGBPoint(128, 0.8, 0.5, 0.3)     # Light brown for fat
+        #     color_transfer_function.AddRGBPoint(200, 0.5, 0.5, 0.5)     # Grey for soft tissue
+        #     color_transfer_function.AddRGBPoint(255, 1.0, 0.0, 0.0)     # Red for blood
 
-            # Create a mapper and actor for the mesh
-            mapper = vtk.vtkPolyDataMapper()
-            mapper.SetInputConnection(contour.GetOutputPort())
-            mapper.SetLookupTable(color_transfer_function)  # Apply the color transfer function
-            mapper.SetScalarRange(0, 3000)  # Set scalar range
-
-
-            # Create a mapper and actor for the mesh
-            mapper = vtk.vtkPolyDataMapper()
-            mapper.SetInputConnection(contour.GetOutputPort())
-
-            actor = vtk.vtkActor()
-            actor.SetMapper(mapper)
-
-            # Add the actor to the renderer
-            renderer.AddActor(actor)
-            renderer.SetBackground(0.1, 0.1, 0.1)  # Background color
+        #     # Create a mapper and actor for the mesh
+        #     mapper = vtk.vtkPolyDataMapper()
+        #     mapper.SetInputConnection(contour.GetOutputPort())
+        #     mapper.SetLookupTable(color_transfer_function)  # Apply the color transfer function
+        #     mapper.SetScalarRange(0, 3000)  # Set scalar range
 
 
-            # Create slider to adjust the contour threshold
-            # self.threshold_slider = tk.Scale(self.new_window, from_=0, to=255, orient=tk.HORIZONTAL, label="Threshold")
-            # self.threshold_slider.set(self.window_level)  # Set to initial window level
-            # self.threshold_slider.pack(side=tk.TOP, fill=tk.X)
+        #     # Create a mapper and actor for the mesh
+        #     mapper = vtk.vtkPolyDataMapper()
+        #     mapper.SetInputConnection(contour.GetOutputPort())
 
-            # Bind slider to update mesh
-            # self.threshold_slider.bind("<Motion>", lambda event: self.update_threshold(self.threshold_slider.get()))
+        #     actor = vtk.vtkActor()
+        #     actor.SetMapper(mapper)
 
-            # Add the slider to the VTK window
-            render_window_interactor.GetRenderWindow().AddRenderer(renderer)
+        #     # Add the actor to the renderer
+        #     renderer.AddActor(actor)
+        #     renderer.SetBackground(0.1, 0.1, 0.1)  # Background color
+
+
+        #     # Create slider to adjust the contour threshold
+        #     # self.threshold_slider = tk.Scale(self.new_window, from_=0, to=255, orient=tk.HORIZONTAL, label="Threshold")
+        #     # self.threshold_slider.set(self.window_level)  # Set to initial window level
+        #     # self.threshold_slider.pack(side=tk.TOP, fill=tk.X)
+
+        #     # Bind slider to update mesh
+        #     # self.threshold_slider.bind("<Motion>", lambda event: self.update_threshold(self.threshold_slider.get()))
+
+        #     # Add the slider to the VTK window
+        #     render_window_interactor.GetRenderWindow().AddRenderer(renderer)
             
 
-            render_window.SetSize(800, 600)
-            render_window.Render()
-            render_window_interactor.Initialize()
-            render_window_interactor.Start()
+        #     render_window.SetSize(800, 600)
+        #     render_window.Render()
+        #     render_window_interactor.Initialize()
+        #     render_window_interactor.Start()
 
 def main():
     root = tk.Tk()
