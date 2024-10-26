@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image, ImageTk
 import vtk
 print (vtk.__version__)
-#from vtk.util import numpy_support
+from vtkmodules.util import numpy_support
 import pydicom
 import os 
 
@@ -133,6 +133,7 @@ class VolumeViewer:
             self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
             self.slice_slider.set(0)
             self.update_slice(0)
+            print(self.volume.shape)
         
     
         # later : return dicom info to be displayed laterwith the volume
@@ -171,21 +172,23 @@ class VolumeViewer:
         if self.image!=None:
             slice_to_show = self.image
         else :
-            slice_to_show = self.volume[self.current_slice_index]
-        
-        
-        # Extract the appropriate slice based on the view mode
-        if self.view_mode.get() == "axial":
-            slice_to_show = self.volume[self.current_slice_index, :, :]
-            
-        elif self.view_mode.get() == "sagittal":
-            slice_to_show = self.volume[:, :, self.current_slice_index]
-            slice_to_show = np.flipud(slice_to_show) if self.volume_type == "npy" else slice_to_show
-            
-        elif self.view_mode.get() == "coronal":
-            slice_to_show = self.volume[:, self.current_slice_index, :]
-            slice_to_show = np.flipud(slice_to_show)  if self.volume_type == "npy" else slice_to_show
-            
+
+            # Extract the appropriate slice based on the view mode
+            if self.view_mode.get() == "axial":
+                slice_to_show = self.volume[self.current_slice_index, :, :]
+                self.slice_slider.config(from_=0, to=self.volume.shape[0] - 1, state=tk.NORMAL)
+                
+            elif self.view_mode.get() == "sagittal":
+                slice_to_show = self.volume[:, :, self.current_slice_index]
+                self.slice_slider.config(from_=0, to=self.volume.shape[1] - 1, state=tk.NORMAL)
+                slice_to_show = np.flipud(slice_to_show) if self.volume_type == "npy" else slice_to_show
+                
+            elif self.view_mode.get() == "coronal":
+                slice_to_show = self.volume[:, self.current_slice_index, :]
+                # adjust slice slider because coronal images number is different
+                self.slice_slider.config(from_=0, to=self.volume.shape[2] - 1, state=tk.NORMAL)
+                slice_to_show = np.flipud(slice_to_show)  if self.volume_type == "npy" else slice_to_show
+                
             
             
         # Adjust window level and window width
@@ -225,6 +228,7 @@ class VolumeViewer:
     def update_pixel_values(self, event):
         x, y = event.x, event.y
 
+        # TODO: this sfould be modified to account for other orthogonal views
         if self.volume is not None:
             pixel_value = self.volume[self.current_slice_index][int(y), int(x)]
             self.pixel_value_label.config(text=f"Pixel Value: {pixel_value} , pixel Location :{int(y), int(x)}")
@@ -301,15 +305,15 @@ class VolumeViewer:
 
             # very Fast but have issues when builded to exe
             # Convert the NumPy array to VTK
-            #vtk_array = numpy_support.numpy_to_vtk(self.volume.ravel(), deep=True, array_type=vtk.VTK_FLOAT)
+            vtk_array = numpy_support.numpy_to_vtk(self.volume.ravel(), deep=True, array_type=vtk.VTK_FLOAT)
             
             # Very slow but working
-            flattened_data=self.volume.ravel()
-            vtk_array = vtk.vtkFloatArray()
-            vtk_array.SetNumberOfValues(len(flattened_data))
-            # Populate the vtkArray with data from Numpy array
-            for i in range(len(flattened_data)):
-                vtk_array.SetValue(i, flattened_data[i])
+            # flattened_data=self.volume.ravel()
+            # vtk_array = vtk.vtkFloatArray()
+            # vtk_array.SetNumberOfValues(len(flattened_data))
+            # # Populate the vtkArray with data from Numpy array
+            # for i in range(len(flattened_data)):
+            #     vtk_array.SetValue(i, flattened_data[i])
 
                         
             vtk_image.GetPointData().SetScalars(vtk_array)
