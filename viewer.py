@@ -4,17 +4,17 @@ import numpy as np
 from PIL import Image, ImageTk
 import vtk
 print (vtk.__version__)
-from vtk.util import numpy_support
+#from vtk.util import numpy_support
 import pydicom
 import os 
 
 class VolumeViewer:
     def __init__(self, root):
         self.root = root
-        self.root.title("3D Numpy Volume Viewer")
+        self.root.title("3D Volume Viewer")
 
         # Set the initial dimensions of the window
-        self.root.geometry("900x900")  # Adjust the dimensions as needed
+        self.root.geometry("1000x900")  # Adjust the dimensions as needed
         
         # Configure a dark background
         self.root.configure(bg='#333333')        
@@ -104,6 +104,7 @@ class VolumeViewer:
         if file_path:
             # List to hold the slices
             slices = []
+            self.volume_type = "dicom"
             dicom_folder = os.path.dirname(os.path.abspath(file_path))
             # Loop through all files in the given directory
             for filename in os.listdir(dicom_folder):
@@ -298,8 +299,19 @@ class VolumeViewer:
             vtk_image.SetSpacing(1, 1, 1)  # Set spacing according to your volume data
             vtk_image.SetOrigin(0, 0, 0)
 
+            # very Fast but have issues when builded to exe
             # Convert the NumPy array to VTK
-            vtk_array = numpy_support.numpy_to_vtk(self.volume.ravel(), deep=True, array_type=vtk.VTK_FLOAT)
+            #vtk_array = numpy_support.numpy_to_vtk(self.volume.ravel(), deep=True, array_type=vtk.VTK_FLOAT)
+            
+            # Very slow but working
+            flattened_data=self.volume.ravel()
+            vtk_array = vtk.vtkFloatArray()
+            vtk_array.SetNumberOfValues(len(flattened_data))
+            # Populate the vtkArray with data from Numpy array
+            for i in range(len(flattened_data)):
+                vtk_array.SetValue(i, flattened_data[i])
+
+                        
             vtk_image.GetPointData().SetScalars(vtk_array)
 
             # Apply Marching Cubes algorithm to create a 3D mesh
@@ -318,7 +330,7 @@ class VolumeViewer:
             mapper = vtk.vtkPolyDataMapper()
             mapper.SetInputConnection(contour.GetOutputPort())
             mapper.SetLookupTable(color_transfer_function)  # Apply the color transfer function
-            mapper.SetScalarRange(0, 4000)  # Set scalar range
+            mapper.SetScalarRange(0, 3000)  # Set scalar range
 
 
             # Create a mapper and actor for the mesh
@@ -334,12 +346,12 @@ class VolumeViewer:
 
 
             # Create slider to adjust the contour threshold
-            self.threshold_slider = tk.Scale(self.new_window, from_=0, to=255, orient=tk.HORIZONTAL, label="Threshold")
-            self.threshold_slider.set(self.window_level)  # Set to initial window level
-            self.threshold_slider.pack(side=tk.TOP, fill=tk.X)
+            # self.threshold_slider = tk.Scale(self.new_window, from_=0, to=255, orient=tk.HORIZONTAL, label="Threshold")
+            # self.threshold_slider.set(self.window_level)  # Set to initial window level
+            # self.threshold_slider.pack(side=tk.TOP, fill=tk.X)
 
             # Bind slider to update mesh
-            self.threshold_slider.bind("<Motion>", lambda event: self.update_threshold(self.threshold_slider.get()))
+            # self.threshold_slider.bind("<Motion>", lambda event: self.update_threshold(self.threshold_slider.get()))
 
             # Add the slider to the VTK window
             render_window_interactor.GetRenderWindow().AddRenderer(renderer)
