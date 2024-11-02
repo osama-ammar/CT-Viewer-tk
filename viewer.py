@@ -288,7 +288,8 @@ class VolumeViewer:
     def open_3d_view(self):
         
         # pyvista
-        volume = pv.wrap(self.volume)
+        normalized_volume=self.normalize_volume(self.volume)
+        volume = pv.wrap(normalized_volume)
         # Step 3: Plotting the volume
         plotter = pv.Plotter()
         # Using volume rendering with a custom color map
