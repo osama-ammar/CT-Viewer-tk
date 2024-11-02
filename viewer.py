@@ -295,11 +295,6 @@ class VolumeViewer:
         if window_min >= window_max:
             window_min = 0
             window_max = 255
-            
-        # Clip values to the window level and width
-        volume_3d = np.clip(self.volume, window_min, window_max)
-        volume_3d = 255 * (volume_3d - window_min) / (window_max - window_min)
-
 
         # pyvista
         normalized_volume=self.normalize_volume(self.volume)
