@@ -1,7 +1,7 @@
 # Simple CT Viewer ![ct-scan(1)](https://github.com/user-attachments/assets/77cfe3c5-868e-4564-b7e5-eda55689983e)
 
 - making a simple visualization tool for CT volumes | images in many formate [ npy , dicom ....etc]
-- [download] (https://drive.google.com/file/d/1_6TlsJRiXuZEukuEZeoLVZsdoC0f6kHG/view?usp=drive_link)
+- [download] (https://drive.google.com/file/d/1gCQI09gq5nAa0AqI_JqfL9vdT35mjNGE/view?usp=sharing)
 
 
 ![Captureaas](https://github.com/user-attachments/assets/57ab0a3f-fd13-4132-8f2e-76a23088e962)
