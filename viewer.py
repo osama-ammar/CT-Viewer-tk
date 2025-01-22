@@ -7,6 +7,7 @@ from vtkmodules.util import numpy_support #very tricky issue (using vtkmodules.u
 import pydicom
 import os 
 import pyvista as pv
+import nrrd
 
 class VolumeViewer:
     def __init__(self, root):
@@ -38,6 +39,9 @@ class VolumeViewer:
 
         # Add buttons for opening volume and image (horizontal arrangement)
         self.open_volume_button = tk.Button(self.button_frame, text="Open npy Volume", command=self.open_volume, bg='#555555', fg='white')
+        self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.open_volume_button = tk.Button(self.button_frame, text="Open nrrd", command=self.open_nrrd, bg='#555555', fg='white')
         self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         self.open_image_button = tk.Button(self.button_frame, text="Open npy Image", command=self.open_image, bg='#555555', fg='white')
@@ -101,6 +105,24 @@ class VolumeViewer:
             self.slice_slider.set(0)
             self.update_slice(0)
 
+    def open_nrrd(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy" ), ("All Files", "*.*")])
+        self.image=None
+        if file_path:
+            self.volume , header= nrrd.read(file_path)
+            self.volume = self.volume[::-1]
+            self.current_slice_index = 0
+            
+            self.unique_labels = np.unique(self.volume)
+            self.wl_scale.config(from_=min(self.unique_labels), to=max(self.unique_labels)-1, state=tk.NORMAL)
+            self.wl_scale.config(from_=0, to=max(self.unique_labels) - 1, state=tk.NORMAL)
+            self.wl_scale.set(max(self.unique_labels))
+            self.ww_scale.set(max(self.unique_labels))
+
+            self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
+            self.slice_slider.set(0)
+            self.update_slice(0)
+            
     def open_dicom_case(self):
         
         file_path = filedialog.askopenfilename(filetypes=[("Dicom files", "*.dcm")])
@@ -231,9 +253,13 @@ class VolumeViewer:
     def update_pixel_values(self, event):
         x, y = event.x, event.y
 
-        # TODO: this sfould be modified to account for other orthogonal views
+        # TODO: this sfould be modified to account for other orthogonal views + there's a problem here with mouse position and x , y
         if self.volume is not None:
-            pixel_value = self.volume[self.current_slice_index][int(y), int(x)]
+            try:
+                pixel_value = self.volume[self.current_slice_index][int(y)+1][int(x)+1]
+            except IndexError:
+                pixel_value = 0
+                
             self.pixel_value_label.config(text=f"Pixel Value: {pixel_value} , pixel Location :{int(y), int(x)}")
 
     def on_mousewheel(self, event):
