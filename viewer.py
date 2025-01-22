@@ -29,6 +29,7 @@ class VolumeViewer:
         self.view_mode = tk.StringVar(value="axial")  # Default to axial view
         self.volume_type = "npy"
         self.pyvista_mesh = None
+        self.unique_labels =None
         
         
         # Create a frame for buttons
@@ -90,11 +91,12 @@ class VolumeViewer:
             self.volume = np.load(file_path)
             self.current_slice_index = 0
             
-            # Set specific window level and window width for the volume
-            # Update the window level and width sliders
-            self.wl_scale.set(self.window_level)
-            self.ww_scale.set(self.window_width)
-            
+            self.unique_labels = np.unique(self.volume)
+            self.wl_scale.config(from_=min(self.unique_labels), to=max(self.unique_labels)-1, state=tk.NORMAL)
+            self.wl_scale.config(from_=0, to=max(self.unique_labels) - 1, state=tk.NORMAL)
+            self.wl_scale.set(max(self.unique_labels))
+            self.ww_scale.set(max(self.unique_labels))
+
             self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
             self.slice_slider.set(0)
             self.update_slice(0)
@@ -137,9 +139,6 @@ class VolumeViewer:
             self.update_slice(0)
             print(self.volume.shape)
         
-        
-
-    
         # later : return dicom info to be displayed laterwith the volume
 
     def open_image(self):
@@ -302,19 +301,19 @@ class VolumeViewer:
         # Step 3: Plotting the volume
         plotter = pv.Plotter()
         # Using volume rendering with a custom color map
-        opacity = [0.0, 0.05, 0.1, 0.4, 0.8, 1.0] 
-        plotter.add_volume(volume,cmap="magma",opacity="sigmoid_9",show_scalar_bar=False,shade=True)
+        # opacity = [0.0, 0.05, 0.1, 0.4, 0.8, 1.0] 
+        # plotter.add_volume(volume,cmap="magma",opacity="sigmoid_9",show_scalar_bar=False,shade=True)
 
-        # Configure lighting for a cinematic effect
-        light = pv.Light(position=(1, 1, 1), focal_point=(0, 0, 0))
-        light.intensity = 0.8  # Stronger lighting for cinematic shadows
-        light.specular = 0.5  # Higher specular for a shiny effect
-        plotter.add_light(light)
+        # # Configure lighting for a cinematic effect
+        # light = pv.Light(position=(1, 1, 1), focal_point=(0, 0, 0))
+        # light.intensity = 0.8  # Stronger lighting for cinematic shadows
+        # light.specular = 0.5  # Higher specular for a shiny effect
+        # plotter.add_light(light)
 
-        # Configure a secondary light for depth
-        secondary_light = pv.Light(position=(-1, -1, -1), focal_point=(0, 0, 0))
-        secondary_light.intensity = 0.4  # Softer secondary light to fill shadows
-        plotter.add_light(secondary_light)
+        # # Configure a secondary light for depth
+        # secondary_light = pv.Light(position=(-1, -1, -1), focal_point=(0, 0, 0))
+        # secondary_light.intensity = 0.4  # Softer secondary light to fill shadows
+        # plotter.add_light(secondary_light)
 
         # Render with custom settings
         plotter.camera_position = 'iso'  # Iso view for better depth
