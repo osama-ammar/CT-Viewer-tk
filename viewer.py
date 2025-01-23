@@ -8,6 +8,8 @@ import pydicom
 import os 
 import pyvista as pv
 import nrrd
+import utilities
+
 
 class VolumeViewer:
     def __init__(self, root):
@@ -172,21 +174,7 @@ class VolumeViewer:
             self.slice_slider.config(from_=0, to=1, state=tk.NORMAL)
             self.slice_slider.set(0)
             self.update_slice(0)
-
-    # TODO : make normalization compatible wih different pixels ranges (0 to 1) | (0 to 255) |(-1000 to 5000)
-    def normalize_volume(self,npy_volume):
-        # Adjust window level and window width
-        normalized_volume=npy_volume.copy()
-        window_min = self.window_level - self.window_width / 2
-        window_max = self.window_level + self.window_width / 2
-        for i, image in enumerate(normalized_volume) :
-            # Clip values to the window level and width
-            image = np.clip(image, window_min, window_max)
-            image=image/window_max
-            normalized_volume[i]=image
-            
-        return normalized_volume
-        
+ 
     def update_view(self):
         """Update the view based on the selected view mode."""
         self.update_slice(self.current_slice_index)
@@ -292,7 +280,7 @@ class VolumeViewer:
             vtk_image.SetOrigin(0, 0, 0)
 
             # Copy the NumPy array to VTK image data
-            normalized_volume=self.normalize_volume(self.volume)
+            normalized_volume=utilities.normalize_volume(self.volume)
             vtk_array = numpy_support.numpy_to_vtk(normalized_volume.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
             vtk_image.GetPointData().SetScalars(vtk_array)
 
@@ -309,42 +297,9 @@ class VolumeViewer:
             stl_writer.Write()
             print(f"Volume exported as STL : {file_path}")
 
-
     def open_3d_view(self):
-
-        # Adjust window level and window width
-        window_min = self.window_level - self.window_width / 2
-        window_max = self.window_level + self.window_width / 2
-
-        # Ensure window_min is not greater than window_max (fix any bad configurations)
-        if window_min >= window_max:
-            window_min = 0
-            window_max = 255
-
-        # pyvista
-        normalized_volume=self.normalize_volume(self.volume)
-        volume = pv.wrap(normalized_volume)
-        # Step 3: Plotting the volume
-        plotter = pv.Plotter()
-        # Using volume rendering with a custom color map
-        # opacity = [0.0, 0.05, 0.1, 0.4, 0.8, 1.0] 
-        # plotter.add_volume(volume,cmap="magma",opacity="sigmoid_9",show_scalar_bar=False,shade=True)
-
-        # # Configure lighting for a cinematic effect
-        # light = pv.Light(position=(1, 1, 1), focal_point=(0, 0, 0))
-        # light.intensity = 0.8  # Stronger lighting for cinematic shadows
-        # light.specular = 0.5  # Higher specular for a shiny effect
-        # plotter.add_light(light)
-
-        # # Configure a secondary light for depth
-        # secondary_light = pv.Light(position=(-1, -1, -1), focal_point=(0, 0, 0))
-        # secondary_light.intensity = 0.4  # Softer secondary light to fill shadows
-        # plotter.add_light(secondary_light)
-
-        # Render with custom settings
-        plotter.camera_position = 'iso'  # Iso view for better depth
-
-        # Step 4: Show the plot
+        #plotter = utilities.open_3d_view(self.volume,self.window_level,self.window_width)
+        plotter = utilities.npy_to_pyvista(self.volume)
         plotter.show()
  
 def main():
