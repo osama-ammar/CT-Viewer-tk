@@ -110,7 +110,7 @@ class VolumeViewer:
         self.image=None
         if file_path:
             self.volume , header= nrrd.read(file_path)
-            self.volume = self.volume[::-1]
+            self.volume = np.transpose(self.volume, (2, 1, 0))
             self.current_slice_index = 0
             
             self.unique_labels = np.unique(self.volume)
