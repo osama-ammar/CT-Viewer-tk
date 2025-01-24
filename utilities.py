@@ -18,6 +18,13 @@ def normalize_volume(npy_volume,window_level,window_width):
     return normalized_volume
 
 
+
+# Function to clip the volume and update the plot
+def update_clipping(volume ,plotter, min_val=None, max_val=None):
+    # Clip the volume to the range
+    pass
+    
+    
 def npy_to_pyvista(volume):
     # Use PyVista's color map (or specify your own)
     plotter = pv.Plotter()
@@ -28,32 +35,54 @@ def npy_to_pyvista(volume):
         show_scalar_bar=False,
     )
 
+    plotter.add_slider_widget(
+        lambda min_val : update_clipping(volume, plotter,min_val=min_val),  # Update min value
+        [volume.min(), volume.max()],  # Slider range based on volume data
+        value=volume.min(),  # Initial min value
+        title="min",
+        tube_width=0.002,
+        slider_width = 0.002,
+        style="classic",  # Modern style slider
+        pointa=(0.02, 0.9),  # Position of one end of the slider
+        pointb=(0.3, 0.9),  # Position of the other end of the slider
+        
+    )
+
+
     plotter.view_zx()
     plotter.camera.up = (0, 0, 1)
     plotter.camera.zoom(1.3)
 
+
     return plotter
 
 
 
-def open_3d_view(volume,window_level,window_width):
+def export_volume_as_stl_vtk(volume,file_path):
+    
+    if volume is not None:
+        # Create a VTK image data
+        vtk_image = vtk.vtkImageData()
+        vtk_image.SetDimensions(volume.shape[::-1])
+        vtk_image.SetSpacing(1, 1, 1)
+        vtk_image.SetOrigin(0, 0, 0)
 
-    # Adjust window level and window width
-    window_min = window_level - window_width / 2
-    window_max = window_level + window_width / 2
+        # Copy the NumPy array to VTK image data
+        normalized_volume=utilities.normalize_volume(volume)
+        vtk_array = numpy_support.numpy_to_vtk(normalized_volume.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
+        vtk_image.GetPointData().SetScalars(vtk_array)
 
-    # Ensure window_min is not greater than window_max (fix any bad configurations)
-    if window_min >= window_max:
-        window_min = 0
-        window_max = 255
-    # pyvista
-    normalized_volume=normalize_volume(volume,window_level,window_width)
-    volume = pv.wrap(normalized_volume)
-    
-    # Step 3: Plotting the volume
-    plotter = pv.Plotter()
-    
-    # Render with custom settings
-    plotter.camera_position = 'iso'  # Iso view for better depth
-    
-    return plotter
+        # Convert VTK image data to a VTK PolyData
+        contour = vtk.vtkMarchingCubes()
+        contour.SetInputData(vtk_image)
+        contour.ComputeNormalsOn()
+        contour.SetValue(0, 0.5)
+
+        # Write the STL file
+        stl_writer = vtk.vtkSTLWriter()
+        stl_writer.SetFileName(file_path)
+        stl_writer.SetInputConnection(contour.GetOutputPort())
+        stl_writer.Write()
+        print(f"Volume exported as STL : {file_path}")
+        
+        

@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import filedialog
 import numpy as np
 from PIL import Image, ImageTk
-import vtk
 from vtkmodules.util import numpy_support #very tricky issue (using vtkmodules.util insted of  vtk.util ) both will work but when converting to exe vtk.util will not work
 import pydicom
 import os 
@@ -268,34 +267,7 @@ class VolumeViewer:
             file_path = filedialog.asksaveasfilename(defaultextension=".stl", filetypes=[("STL files", "*.stl")])
 
             if file_path:
-                self.export_volume_as_stl_vtk(file_path)
-
-    def export_volume_as_stl_vtk(self, file_path):
-        
-        if self.volume is not None:
-            # Create a VTK image data
-            vtk_image = vtk.vtkImageData()
-            vtk_image.SetDimensions(self.volume.shape[::-1])
-            vtk_image.SetSpacing(1, 1, 1)
-            vtk_image.SetOrigin(0, 0, 0)
-
-            # Copy the NumPy array to VTK image data
-            normalized_volume=utilities.normalize_volume(self.volume)
-            vtk_array = numpy_support.numpy_to_vtk(normalized_volume.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
-            vtk_image.GetPointData().SetScalars(vtk_array)
-
-            # Convert VTK image data to a VTK PolyData
-            contour = vtk.vtkMarchingCubes()
-            contour.SetInputData(vtk_image)
-            contour.ComputeNormalsOn()
-            contour.SetValue(0, 0.5)
-
-            # Write the STL file
-            stl_writer = vtk.vtkSTLWriter()
-            stl_writer.SetFileName(file_path)
-            stl_writer.SetInputConnection(contour.GetOutputPort())
-            stl_writer.Write()
-            print(f"Volume exported as STL : {file_path}")
+                utilities.export_volume_as_stl_vtk(self.volume,file_path)
 
     def open_3d_view(self):
         #plotter = utilities.open_3d_view(self.volume,self.window_level,self.window_width)
