@@ -2,11 +2,13 @@ import tkinter as tk
 from tkinter import filedialog
 import numpy as np
 from PIL import Image, ImageTk
-import vtk
-print (vtk.__version__)
-from vtkmodules.util import numpy_support
+from vtkmodules.util import numpy_support #very tricky issue (using vtkmodules.util insted of  vtk.util ) both will work but when converting to exe vtk.util will not work
 import pydicom
 import os 
+import pyvista as pv
+import nrrd
+import utilities
+
 
 class VolumeViewer:
     def __init__(self, root):
@@ -28,13 +30,19 @@ class VolumeViewer:
         self.window_width = 2000  # Initial value, adjust as needed
         self.view_mode = tk.StringVar(value="axial")  # Default to axial view
         self.volume_type = "npy"
-
+        self.pyvista_mesh = None
+        self.unique_labels =None
+        
+        
         # Create a frame for buttons
         self.button_frame = tk.Frame(root, bg='#333333')
         self.button_frame.pack(side=tk.TOP, padx=10, pady=10)
 
         # Add buttons for opening volume and image (horizontal arrangement)
         self.open_volume_button = tk.Button(self.button_frame, text="Open npy Volume", command=self.open_volume, bg='#555555', fg='white')
+        self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.open_volume_button = tk.Button(self.button_frame, text="Open nrrd", command=self.open_nrrd, bg='#555555', fg='white')
         self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         self.open_image_button = tk.Button(self.button_frame, text="Open npy Image", command=self.open_image, bg='#555555', fg='white')
@@ -88,15 +96,34 @@ class VolumeViewer:
             self.volume = np.load(file_path)
             self.current_slice_index = 0
             
-            # Set specific window level and window width for the volume
-            # Update the window level and width sliders
-            self.wl_scale.set(self.window_level)
-            self.ww_scale.set(self.window_width)
-            
+            self.unique_labels = np.unique(self.volume)
+            self.wl_scale.config(from_=min(self.unique_labels), to=max(self.unique_labels)-1, state=tk.NORMAL)
+            self.wl_scale.config(from_=0, to=max(self.unique_labels) - 1, state=tk.NORMAL)
+            self.wl_scale.set(max(self.unique_labels))
+            self.ww_scale.set(max(self.unique_labels))
+
             self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
             self.slice_slider.set(0)
             self.update_slice(0)
 
+    def open_nrrd(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy" ), ("All Files", "*.*")])
+        self.image=None
+        if file_path:
+            self.volume , header= nrrd.read(file_path)
+            self.volume = np.transpose(self.volume, (2, 1, 0))
+            self.current_slice_index = 0
+            
+            self.unique_labels = np.unique(self.volume)
+            self.wl_scale.config(from_=min(self.unique_labels), to=max(self.unique_labels)-1, state=tk.NORMAL)
+            self.wl_scale.config(from_=0, to=max(self.unique_labels) - 1, state=tk.NORMAL)
+            self.wl_scale.set(max(self.unique_labels))
+            self.ww_scale.set(max(self.unique_labels))
+
+            self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
+            self.slice_slider.set(0)
+            self.update_slice(0)
+            
     def open_dicom_case(self):
         
         file_path = filedialog.askopenfilename(filetypes=[("Dicom files", "*.dcm")])
@@ -135,7 +162,6 @@ class VolumeViewer:
             self.update_slice(0)
             print(self.volume.shape)
         
-    
         # later : return dicom info to be displayed laterwith the volume
 
     def open_image(self):
@@ -147,21 +173,7 @@ class VolumeViewer:
             self.slice_slider.config(from_=0, to=1, state=tk.NORMAL)
             self.slice_slider.set(0)
             self.update_slice(0)
-
-    # TODO : make normalization compatible wih different pixels ranges (0 to 1) | (0 to 255) |(-1000 to 5000)
-    def normalize_volume(self,npy_volume):
-        # Adjust window level and window width
-        normalized_volume=npy_volume.copy()
-        window_min = self.window_level - self.window_width / 2
-        window_max = self.window_level + self.window_width / 2
-        for i, image in enumerate(normalized_volume) :
-            # Clip values to the window level and width
-            image = np.clip(image, window_min, window_max)
-            image=image/window_max
-            normalized_volume[i]=image
-            
-        return normalized_volume
-        
+ 
     def update_view(self):
         """Update the view based on the selected view mode."""
         self.update_slice(self.current_slice_index)
@@ -228,9 +240,13 @@ class VolumeViewer:
     def update_pixel_values(self, event):
         x, y = event.x, event.y
 
-        # TODO: this sfould be modified to account for other orthogonal views
+        # TODO: this sfould be modified to account for other orthogonal views + there's a problem here with mouse position and x , y
         if self.volume is not None:
-            pixel_value = self.volume[self.current_slice_index][int(y), int(x)]
+            try:
+                pixel_value = self.volume[self.current_slice_index][int(y)+1][int(x)+1]
+            except IndexError:
+                pixel_value = 0
+                
             self.pixel_value_label.config(text=f"Pixel Value: {pixel_value} , pixel Location :{int(y), int(x)}")
 
     def on_mousewheel(self, event):
@@ -251,121 +267,13 @@ class VolumeViewer:
             file_path = filedialog.asksaveasfilename(defaultextension=".stl", filetypes=[("STL files", "*.stl")])
 
             if file_path:
-                self.export_volume_as_stl_vtk(file_path)
-
-    def export_volume_as_stl_vtk(self, file_path):
-        if self.volume is not None:
-            # Create a VTK image data
-            vtk_image = vtk.vtkImageData()
-            vtk_image.SetDimensions(self.volume.shape[::-1])
-            vtk_image.SetSpacing(1, 1, 1)
-            vtk_image.SetOrigin(0, 0, 0)
-
-            # Copy the NumPy array to VTK image data
-            normalized_volume=self.normalize_volume(self.volume)
-            vtk_array = numpy_support.numpy_to_vtk(normalized_volume.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
-            vtk_image.GetPointData().SetScalars(vtk_array)
-
-            # Convert VTK image data to a VTK PolyData
-            contour = vtk.vtkMarchingCubes()
-            contour.SetInputData(vtk_image)
-            contour.ComputeNormalsOn()
-            contour.SetValue(0, 0.5)
-
-            # Write the STL file
-            stl_writer = vtk.vtkSTLWriter()
-            stl_writer.SetFileName(file_path)
-            stl_writer.SetInputConnection(contour.GetOutputPort())
-            stl_writer.Write()
-            
-            print(f"Volume exported as STL : {file_path}")
-
+                utilities.export_volume_as_stl_vtk(self.volume,file_path)
 
     def open_3d_view(self):
-        if self.volume is not None:
-            # Create a new window
-            self.new_window = tk.Toplevel(self.root)
-            self.new_window.title("3D Volume View")
-            self.new_window.geometry("800x600")
-
-            # Create a VTK renderer, render window, and interactor
-            renderer = vtk.vtkRenderer()
-            render_window = vtk.vtkRenderWindow()
-            render_window.AddRenderer(renderer)
-
-            # Create the interactor without passing the render window directly
-            render_window_interactor = vtk.vtkRenderWindowInteractor()
-            render_window_interactor.SetRenderWindow(render_window)
-            
-            # Create a VTK image data
-            vtk_image = vtk.vtkImageData()
-            vtk_image.SetDimensions(self.volume.shape[::-1])
-            vtk_image.SetSpacing(1, 1, 1)  # Set spacing according to your volume data
-            vtk_image.SetOrigin(0, 0, 0)
-
-            # very Fast but have issues when builded to exe
-            # Convert the NumPy array to VTK
-            vtk_array = numpy_support.numpy_to_vtk(self.volume.ravel(), deep=True, array_type=vtk.VTK_FLOAT)
-            
-            # Very slow but working
-            # flattened_data=self.volume.ravel()
-            # vtk_array = vtk.vtkFloatArray()
-            # vtk_array.SetNumberOfValues(len(flattened_data))
-            # # Populate the vtkArray with data from Numpy array
-            # for i in range(len(flattened_data)):
-            #     vtk_array.SetValue(i, flattened_data[i])
-
-                        
-            vtk_image.GetPointData().SetScalars(vtk_array)
-
-            # Apply Marching Cubes algorithm to create a 3D mesh
-            contour = vtk.vtkMarchingCubes()
-            contour.SetInputData(vtk_image)
-            contour.SetValue(0, self.window_level)  # Using window level for the contour
-
-            # Create a color transfer function for realistic colors
-            color_transfer_function = vtk.vtkColorTransferFunction()
-            color_transfer_function.AddRGBPoint(0, 1.0, 1.0, 1.0)       # White for air
-            color_transfer_function.AddRGBPoint(128, 0.8, 0.5, 0.3)     # Light brown for fat
-            color_transfer_function.AddRGBPoint(200, 0.5, 0.5, 0.5)     # Grey for soft tissue
-            color_transfer_function.AddRGBPoint(255, 1.0, 0.0, 0.0)     # Red for blood
-
-            # Create a mapper and actor for the mesh
-            mapper = vtk.vtkPolyDataMapper()
-            mapper.SetInputConnection(contour.GetOutputPort())
-            mapper.SetLookupTable(color_transfer_function)  # Apply the color transfer function
-            mapper.SetScalarRange(0, 3000)  # Set scalar range
-
-
-            # Create a mapper and actor for the mesh
-            mapper = vtk.vtkPolyDataMapper()
-            mapper.SetInputConnection(contour.GetOutputPort())
-
-            actor = vtk.vtkActor()
-            actor.SetMapper(mapper)
-
-            # Add the actor to the renderer
-            renderer.AddActor(actor)
-            renderer.SetBackground(0.1, 0.1, 0.1)  # Background color
-
-
-            # Create slider to adjust the contour threshold
-            # self.threshold_slider = tk.Scale(self.new_window, from_=0, to=255, orient=tk.HORIZONTAL, label="Threshold")
-            # self.threshold_slider.set(self.window_level)  # Set to initial window level
-            # self.threshold_slider.pack(side=tk.TOP, fill=tk.X)
-
-            # Bind slider to update mesh
-            # self.threshold_slider.bind("<Motion>", lambda event: self.update_threshold(self.threshold_slider.get()))
-
-            # Add the slider to the VTK window
-            render_window_interactor.GetRenderWindow().AddRenderer(renderer)
-            
-
-            render_window.SetSize(800, 600)
-            render_window.Render()
-            render_window_interactor.Initialize()
-            render_window_interactor.Start()
-
+        #plotter = utilities.open_3d_view(self.volume,self.window_level,self.window_width)
+        plotter = utilities.npy_to_pyvista(self.volume)
+        plotter.show()
+ 
 def main():
     root = tk.Tk()
     root.configure(bg='#333333')  # Set the overall background color

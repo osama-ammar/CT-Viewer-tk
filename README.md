@@ -17,7 +17,7 @@
 ### TODOS
 - [\] accepting diom , npy , NIFTI , others ,images
 - [x] fix loading error
-- [ ] making a batch for generating the executible
+- [/] making a batch for generating the executible
 - [ ] updating ui in new branch
 - [x] opening the app from command line with images path to open
 - [x] loading 2D image option
