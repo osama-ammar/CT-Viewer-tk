@@ -18,7 +18,7 @@
 - [x] accepting dicom , npy and  nrrd.
 - [x] fix loading error
 - [x] making a batch for generating the executible
-- [ ] updating ui in new branch
+- [ ] get all fuctionalities as small functions
 - [x] opening the app from command line with images path to open
 - [x] loading 2D image option
 - [ ] inserting a segmentation|detection model
