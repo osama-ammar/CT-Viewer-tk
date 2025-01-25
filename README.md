@@ -15,13 +15,19 @@
 
 
 ### TODOS
-- [\] accepting diom , npy , NIFTI , others ,images
+- [x] accepting dicom , npy and  nrrd.
 - [x] fix loading error
-- [/] making a batch for generating the executible
+- [x] making a batch for generating the executible
 - [ ] updating ui in new branch
 - [x] opening the app from command line with images path to open
 - [x] loading 2D image option
 - [ ] inserting a segmentation|detection model
     - [ ] use simple model to detect|segment selected image
-    - [ ] show the segmentation on new window
+    - [ ] show the segmentation on volume|new window
     - [ ] save the segmentation
+- [ ] export images as :
+    - [ ] npy
+    - [ ] nrrd
+    - [ ] NIfTI 
+    - [ ] TIFF 
+- [ ] converting app into web based , utilizing current functionalities .....( Later)
