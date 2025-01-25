@@ -1,6 +1,7 @@
 import numpy as np
 import vtk
 import pyvista as pv
+from vtkmodules.util import numpy_support #very tricky issue (using vtkmodules.util insted of  vtk.util ) both will work but when converting to exe vtk.util will not work
 
 
 # TODO : make normalization compatible wih different pixels ranges (0 to 1) | (0 to 255) |(-1000 to 5000)
@@ -58,7 +59,7 @@ def npy_to_pyvista(volume):
 
 
 
-def export_volume_as_stl_vtk(volume,file_path):
+def export_volume_as_stl_vtk(volume,file_path,window_level,window_width):
     
     if volume is not None:
         # Create a VTK image data
@@ -68,7 +69,7 @@ def export_volume_as_stl_vtk(volume,file_path):
         vtk_image.SetOrigin(0, 0, 0)
 
         # Copy the NumPy array to VTK image data
-        normalized_volume=utilities.normalize_volume(volume)
+        normalized_volume=normalize_volume(volume,window_level,window_width)
         vtk_array = numpy_support.numpy_to_vtk(normalized_volume.ravel(), deep=True, array_type=vtk.VTK_UNSIGNED_CHAR)
         vtk_image.GetPointData().SetScalars(vtk_array)
 

@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import filedialog
 import numpy as np
 from PIL import Image, ImageTk
-from vtkmodules.util import numpy_support #very tricky issue (using vtkmodules.util insted of  vtk.util ) both will work but when converting to exe vtk.util will not work
 import pydicom
 import os 
 import pyvista as pv
@@ -267,7 +266,7 @@ class VolumeViewer:
             file_path = filedialog.asksaveasfilename(defaultextension=".stl", filetypes=[("STL files", "*.stl")])
 
             if file_path:
-                utilities.export_volume_as_stl_vtk(self.volume,file_path)
+                utilities.export_volume_as_stl_vtk(self.volume,file_path,self.window_level,self.window_width)
 
     def open_3d_view(self):
         #plotter = utilities.open_3d_view(self.volume,self.window_level,self.window_width)
