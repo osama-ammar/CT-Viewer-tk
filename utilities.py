@@ -86,4 +86,28 @@ def export_volume_as_stl_vtk(volume,file_path,window_level,window_width):
         stl_writer.Write()
         print(f"Volume exported as STL : {file_path}")
         
-        
+def export_npy(npy_volume,save_path):
+    pass
+
+def export_nrrd(npy_volume,save_path):
+    pass
+
+def export_tiff(npy_volume,save_path):
+    pass
+
+def export_nifti(npy_volume,save_path):
+    pass
+
+def segmentation_volume_fuse(npy_volume ,npy_mask ):
+    pass
+
+
+def createMIP(np_img, slices_num = 15):
+    ''' create the mip image from original image, slice_num is the number of 
+    slices for maximum intensity projection'''
+    img_shape = np_img.shape
+    np_mip = np.zeros(img_shape)
+    for i in range(img_shape[0]):
+        start = max(0, i-slices_num)
+        np_mip[i,:,:] = np.amax(np_img[start:i+1],0)
+    return np_mip
