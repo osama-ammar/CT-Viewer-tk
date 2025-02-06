@@ -19,6 +19,10 @@
 - [x] fix loading error
 - [x] making a batch for generating the executible
 - [ ] get all fuctionalities as small functions
+- [ ] handle possible exceptions
+    - [ ] open 2d image with 3d button and vice verse
+    - [ ] open nrrd image with 3d button and vice verse
+    - [ ] it's better to make one button that open any format (the app will detect the format)
 - [x] opening the app from command line with images path to open
 - [x] loading 2D image option
 - [ ] inserting a segmentation|detection model
