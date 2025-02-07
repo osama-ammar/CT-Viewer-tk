@@ -107,7 +107,7 @@ class VolumeViewer:
     def create_viewer_2(self):
         # frames 
         viewer2_frame = tk.Frame(self.root, bg='#333333')
-        viewer2_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.X)
+        viewer2_frame.pack(side=tk.RIGHT, padx=10, pady=10, fill=tk.X)
 
         button_frame = tk.Frame(viewer2_frame, bg='#333333')
         button_frame.pack(side=tk.TOP, padx=10, pady=10, fill=tk.X)
