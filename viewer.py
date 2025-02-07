@@ -32,61 +32,74 @@ class VolumeViewer:
         self.pyvista_mesh = None
         self.unique_labels =None
         
+    
+        self.create_controls_frame()
+
         
-        # Create a frame for buttons
-        self.button_frame = tk.Frame(root, bg='#333333')
-        self.button_frame.pack(side=tk.TOP, padx=10, pady=10)
-
-        # Add buttons for opening volume and image (horizontal arrangement)
-        self.open_volume_button = tk.Button(self.button_frame, text="Open npy Volume", command=self.open_volume, bg='#555555', fg='white')
-        self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.open_volume_button = tk.Button(self.button_frame, text="Open nrrd", command=self.open_nrrd, bg='#555555', fg='white')
-        self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.open_image_button = tk.Button(self.button_frame, text="Open npy Image", command=self.open_image, bg='#555555', fg='white')
-        self.open_image_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.open_dicom_button = tk.Button(self.button_frame, text="Open dicom", command=self.open_dicom_case, bg='#555555', fg='white')
-        self.open_dicom_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.export_stl_button = tk.Button(self.button_frame, text="Export as STL", command=self.export_stl_vtk, bg='#555555', fg='white')
-        self.export_stl_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        # Add radio buttons for view modes (axial, sagittal, coronal)
-        tk.Radiobutton(self.button_frame, text="Axial", variable=self.view_mode, value="axial", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT, padx=5, pady=5)
-        tk.Radiobutton(self.button_frame, text="Sagittal", variable=self.view_mode, value="sagittal", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT, padx=5, pady=5)
-        tk.Radiobutton(self.button_frame, text="Coronal", variable=self.view_mode, value="coronal", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.show_3d = tk.Button(self.button_frame, text="Show 3D", command=self.open_3d_view, bg='#555555', fg='white')
-        self.show_3d.pack(side=tk.LEFT, padx=5, pady=5)
-
-
-        # Create Tkinter Canvas
-        self.canvas = tk.Canvas(root, bg='#222222')  # Set canvas background color
-        self.canvas.pack(side=tk.LEFT, padx=10, pady=10)
-
         # Label to display pixel values
         self.pixel_value_label = tk.Label(root, text="Pixel Value: ", bg='#333333', fg='white')
-        self.pixel_value_label.pack(side=tk.BOTTOM, padx=10, pady=10)
-
-        # Add sliders for adjusting window level and window width
-        self.wl_scale = tk.Scale(root, from_=-1000, to=4000, orient=tk.VERTICAL, label="WL", command=self.update_wl, length=400)
-        self.ww_scale = tk.Scale(root, from_=1, to=4000, orient=tk.VERTICAL, label="WW", command=self.update_ww, length=400)
-        self.ww_scale.pack(side=tk.RIGHT, padx=10, pady=10)
-        self.wl_scale.pack(side=tk.RIGHT, padx=10, pady=10)
-
-        # Add a slider for navigating through slices
-        self.slice_slider = tk.Scale(root, from_=0, to=1, orient=tk.VERTICAL, resolution=1, command=self.update_slice, length=400)
-        self.slice_slider.pack(side=tk.LEFT, padx=10, pady=10)
-
         # Bind mouse wheel event to update the displayed slice
         self.canvas.bind("<MouseWheel>", self.on_mousewheel)
-
         # Bind mouse motion event to update pixel values
         self.canvas.bind("<Motion>", self.update_pixel_values)
         
+        # positiong of widgets
 
+
+        self.pixel_value_label.pack(side=tk.BOTTOM, padx=10, pady=10)   
+        
+        
+    def create_controls_frame(self):
+        
+        controls_frame = tk.Frame(self.root, bg='#333333')
+        controls_frame.pack(side=tk.TOP, padx=10, pady=10, fill=tk.X)
+        
+          
+        button_frame = tk.Frame(controls_frame, bg='#333333')
+        button_frame.pack(side=tk.TOP, padx=10, pady=10, fill=tk.X)
+
+        # Add buttons for opening volume and image (horizontal arrangement)
+        self.open_volume_button = tk.Button(button_frame, text="Open npy Volume", command=self.open_volume, bg='#555555', fg='white')
+        self.open_nrrd_button = tk.Button(button_frame, text="Open nrrd", command=self.open_nrrd, bg='#555555', fg='white')
+        self.open_image_button = tk.Button(button_frame, text="Open npy Image", command=self.open_image, bg='#555555', fg='white')
+        self.open_dicom_button = tk.Button(button_frame, text="Open dicom", command=self.open_dicom_case, bg='#555555', fg='white')
+        self.export_stl_button = tk.Button(button_frame, text="Export as STL", command=self.export_stl_vtk, bg='#555555', fg='white')
+        self.show_3d = tk.Button(button_frame, text="Show 3D", command=self.open_3d_view, bg='#555555', fg='white')
+        
+        self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
+        self.open_nrrd_button.pack(side=tk.LEFT, padx=5, pady=5)
+        self.open_image_button.pack(side=tk.LEFT, padx=5, pady=5)
+        self.open_dicom_button.pack(side=tk.LEFT, padx=5, pady=5)
+        self.export_stl_button.pack(side=tk.LEFT, padx=5, pady=5)
+        self.show_3d.pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Add radio buttons for view modes (axial, sagittal, coronal)
+        radio_buttons_frame = tk.Frame(controls_frame, bg='#333333')
+        radio_buttons_frame.pack(side=tk.TOP, padx=10, pady=10, fill=tk.X)
+
+        tk.Radiobutton(radio_buttons_frame, text="Axial", variable=self.view_mode, value="axial", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT, padx=5, pady=5)
+        tk.Radiobutton(radio_buttons_frame, text="Sagittal", variable=self.view_mode, value="sagittal", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT, padx=5, pady=5)
+        tk.Radiobutton(radio_buttons_frame, text="Coronal", variable=self.view_mode, value="coronal", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT, padx=5, pady=5)
+
+
+        self.viewer1_frame = tk.Frame(controls_frame, bg='#333333')
+        self.canvas = tk.Canvas(self.viewer1_frame, bg='#222222')  # Set canvas background color
+        self.canvas.pack(side=tk.LEFT, padx=10, pady=10)
+        
+        self.viewer1_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.X)
+        self.slice_slider = tk.Scale(self.viewer1_frame, from_=0, to=1, orient=tk.VERTICAL, resolution=1, command=self.update_slice, length=400)
+        self.slice_slider.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
+
+
+        brightness_frame = tk.Frame(controls_frame, bg='#333333')
+
+        self.wl_scale = tk.Scale(brightness_frame , from_=-1000, to=4000, orient=tk.HORIZONTAL, label="WL", command=self.update_wl, length=400)
+        self.ww_scale = tk.Scale(brightness_frame , from_=1, to=4000, orient=tk.HORIZONTAL, label="WW", command=self.update_ww, length=400)
+
+        self.ww_scale.pack(side=tk.TOP, padx=10, pady=10)
+        self.wl_scale.pack(side=tk.TOP, padx=10, pady=10)
+         
+        
         
     def open_volume(self):
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy"), ("All Files", "*.*")])
