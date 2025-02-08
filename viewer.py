@@ -26,6 +26,7 @@ class VolumeViewer:
         self.volume_type = "npy"
         self.pyvista_mesh = None
         self.unique_labels =None
+        self.case_name = None
         
         # Initialize variables for viewer 2
         self.volume_2 = None
@@ -37,14 +38,17 @@ class VolumeViewer:
         self.volume_type_2 = "npy"
         self.pyvista_mesh_2 = None
         self.unique_labels_2 =None
+        self.case_name_2 = None
         
         self.create_viewer_1()
         self.create_viewer_2()
 
         # Label to display pixel values
         self.pixel_value_label = tk.Label(root, text="Pixel Value: ", bg='#333333', fg='white')
-        self.pixel_value_label.pack(side=tk.BOTTOM, padx=10, pady=10)   
+        self.pixel_value_label.pack(side=tk.BOTTOM, padx=10, pady=10)  
         
+        self.case_name_label = tk.Label(root, text=f"name:   ", bg='#333333', fg='white')
+        self.case_name_label.pack(side=tk.BOTTOM, padx=10, pady=10) 
         
     def create_viewer_1(self):
         # frames 
@@ -160,6 +164,8 @@ class VolumeViewer:
         
     def open_volume(self):
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy"), ("All Files", "*.*")])
+        self.case_name = os.path.basename(file_path)
+        print(self.case_name)
         self.image=None
         if file_path:
             self.volume = np.load(file_path)
@@ -177,6 +183,8 @@ class VolumeViewer:
 
     def open_volume_2(self):
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy"), ("All Files", "*.*")])
+        self.case_name_2 = os.path.basename(file_path)
+        
         self.image_2=None
         if file_path:
             self.volume_2 = np.load(file_path)
@@ -305,7 +313,7 @@ class VolumeViewer:
             self.slice_slider_2.config(from_=0, to=len(self.volume_2) - 1, state=tk.NORMAL)
             self.slice_slider_2.set(0)
             self.update_slice_2(0)
-            print(self.volume.shape_2)
+            print(self.volume_2.shape)
         
         # later : return dicom info to be displayed laterwith the volume
         
@@ -465,7 +473,7 @@ class VolumeViewer:
                 pixel_value = 0
                 
             self.pixel_value_label.config(text=f"Pixel Value: {pixel_value} , pixel Location :{int(y), int(x)}")
-
+            self.case_name_label.config(text=f"Case Name: {self.case_name} ")
 
     def update_pixel_values_2(self, event):
         x, y = event.x, event.y
@@ -477,7 +485,9 @@ class VolumeViewer:
             except IndexError:
                 pixel_value = 0
                 
-            self.pixel_value_label_2.config(text=f"Pixel Value: {pixel_value} , pixel Location :{int(y), int(x)}")
+            self.pixel_value_label.config(text=f"Pixel Value: {pixel_value} , pixel Location :{int(y), int(x)}")
+            self.case_name_label.config(text=f"Case Name: {self.case_name_2} ")
+            
 
 
     def on_mousewheel(self, event):
@@ -504,8 +514,8 @@ class VolumeViewer:
         else:  # Scrolling down
             self.current_slice_index_2 -=1
         # Update the displayed slice
-        self.slice_slider.set(self.current_slice_index_2)
-        self.update_slice(self.current_slice_index_2)
+        self.slice_slider_2.set(self.current_slice_index_2)
+        self.update_slice_2(self.current_slice_index_2)
 
 
     def export_stl_vtk(self):
