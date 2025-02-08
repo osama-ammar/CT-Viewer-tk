@@ -13,7 +13,7 @@ class VolumeViewer:
     def __init__(self, root):
         self.root = root
         self.root.title("3D Volume Viewer")
-        self.root.geometry("1000x900")  # Adjust the dimensions as needed
+        self.root.geometry("1600x900")  # Adjust the dimensions as needed
         self.root.configure(bg='#333333')        
         
         # Initialize variables for viewer 1
@@ -46,6 +46,9 @@ class VolumeViewer:
         # Label to display pixel values
         self.pixel_value_label = tk.Label(root, text="Pixel Value: ", bg='#333333', fg='white')
         self.pixel_value_label.pack(side=tk.BOTTOM, padx=10, pady=10)  
+        
+        self.synchronized_slider = tk.Scale(root , from_=-500, to=500, orient=tk.HORIZONTAL, label="sync", command=self.synchronized_sliding, length=300)
+        self.synchronized_slider.pack(side=tk.BOTTOM, padx=10, pady=10) 
         
         self.case_name_label = tk.Label(root, text=f"name:   ", bg='#333333', fg='white')
         self.case_name_label.pack(side=tk.BOTTOM, padx=10, pady=10) 
@@ -202,6 +205,8 @@ class VolumeViewer:
             
     def open_nrrd(self):
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy" ), ("All Files", "*.*")])
+        self.case_name = os.path.basename(file_path)
+        
         self.image=None
         if file_path:
             self.volume , header= nrrd.read(file_path)
@@ -221,6 +226,8 @@ class VolumeViewer:
             
     def open_nrrd_2(self):
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy" ), ("All Files", "*.*")])
+        self.case_name_2 = os.path.basename(file_path)
+        
         self.image_2=None
         if file_path:
             self.volume_2 , header= nrrd.read(file_path)
@@ -240,6 +247,8 @@ class VolumeViewer:
     def open_dicom_case(self):
         
         file_path = filedialog.askopenfilename(filetypes=[("Dicom files", "*.dcm")])
+        self.case_name = os.path.basename(file_path)
+        
         self.image=None
         if file_path:
             # List to hold the slices
@@ -280,6 +289,8 @@ class VolumeViewer:
     def open_dicom_case_2(self):
         
         file_path = filedialog.askopenfilename(filetypes=[("Dicom files", "*.dcm")])
+        self.case_name_2 = os.path.basename(file_path)
+        
         self.image_2=None
         if file_path:
             # List to hold the slices
@@ -319,6 +330,8 @@ class VolumeViewer:
         
     def open_image(self):
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy")])
+        self.case_name = os.path.basename(file_path)
+        
         #self.volume=None
         if file_path:
             self.image = np.load(file_path)
@@ -330,6 +343,8 @@ class VolumeViewer:
         
     def open_image_2(self):
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy")])
+        self.case_name_2 = os.path.basename(file_path)
+        
         #self.volume=None
         if file_path:
             self.image_2 = np.load(file_path)
@@ -544,6 +559,42 @@ class VolumeViewer:
         plotter = utilities.npy_to_pyvista(self.volume_2)
         plotter.show()
         
+        
+    def synchro(self):
+        """Update the view based on the selected view mode."""
+        self.update_slice_2(self.current_slice_index_2)
+        
+    def synchronized_sliding(self, val):
+        self.current_slice_index = int(self.slice_slider.get())
+        self.current_slice_index_2 = int(self.slice_slider_2.get())
+        
+        if self.image!=None and self.image_2!=None:
+            slice_to_show = self.image
+        else :
+
+            # Extract the appropriate slice based on the view mode
+            if self.view_mode.get()==self.view_mode_2.get() == "axial":
+                slice_to_show = self.volume[self.current_slice_index, :, :]
+                slice_to_show_2 = self.volume_2[self.current_slice_index_2, :, :]
+                
+                #self.slice_slider.config(from_=0, to=self.volume.shape[0] - 1, state=tk.NORMAL)
+                
+            elif self.view_mode.get()==self.view_mode_2.get() == "sagittal":
+                slice_to_show = self.volume[:, :, self.current_slice_index]
+                slice_to_show_2 = self.volume_2[:, :, self.current_slice_index_2]
+                
+                #self.slice_slider.config(from_=0, to=self.volume.shape[1] - 1, state=tk.NORMAL)
+                slice_to_show = np.flipud(slice_to_show) if self.volume_type == "npy" else slice_to_show
+                
+            elif self.view_mode.get()==self.view_mode_2.get() == "coronal":
+                slice_to_show = self.volume[:, self.current_slice_index, :]
+                slice_to_show_2 = self.volume_2[:,self.current_slice_index_2,:]
+                
+                # adjust slice slider because coronal images number is different
+                #self.slice_slider.config(from_=0, to=self.volume.shape[2] - 1, state=tk.NORMAL)
+                slice_to_show = np.flipud(slice_to_show)  if self.volume_type == "npy" else slice_to_show
+                
+            
 def main():
     root = tk.Tk()
     root.configure(bg='#333333')  # Set the overall background color
