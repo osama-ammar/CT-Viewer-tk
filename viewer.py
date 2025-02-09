@@ -47,7 +47,7 @@ class VolumeViewer:
         self.pixel_value_label = tk.Label(root, text="Pixel Value: ", bg='#333333', fg='white')
         self.pixel_value_label.pack(side=tk.BOTTOM, padx=10, pady=10)  
         
-        self.synchronized_slider = tk.Scale(root , from_=-500, to=500, orient=tk.HORIZONTAL, label="sync", command=self.synchronized_sliding, length=300)
+        self.synchronized_slider = tk.Scale(root , from_=-400, to=400, orient=tk.HORIZONTAL, label="sync", command=self.synchronized_sliding, length=400)
         self.synchronized_slider.pack(side=tk.BOTTOM, padx=10, pady=10) 
         
         self.case_name_label = tk.Label(root, text=f"name:   ", bg='#333333', fg='white')
@@ -183,6 +183,9 @@ class VolumeViewer:
             self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
             self.slice_slider.set(0)
             self.update_slice(0)
+
+        
+            
 
     def open_volume_2(self):
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy"), ("All Files", "*.*")])
@@ -560,13 +563,15 @@ class VolumeViewer:
         plotter.show()
         
         
-    def synchro(self):
-        """Update the view based on the selected view mode."""
-        self.update_slice_2(self.current_slice_index_2)
         
     def synchronized_sliding(self, val):
-        self.current_slice_index = int(self.slice_slider.get())
-        self.current_slice_index_2 = int(self.slice_slider_2.get())
+        self.current_slice_index = int(self.slice_slider.get())+int(val)
+        self.current_slice_index_2 = int(self.slice_slider_2.get())+int(val)
+        
+        self.slice_slider.set(self.current_slice_index)
+        self.slice_slider_2.set(self.current_slice_index_2)
+        self.update_slice(self.current_slice_index)
+        self.update_slice_2(self.current_slice_index_2)
         
         if self.image!=None and self.image_2!=None:
             slice_to_show = self.image
@@ -577,7 +582,8 @@ class VolumeViewer:
                 slice_to_show = self.volume[self.current_slice_index, :, :]
                 slice_to_show_2 = self.volume_2[self.current_slice_index_2, :, :]
                 
-                #self.slice_slider.config(from_=0, to=self.volume.shape[0] - 1, state=tk.NORMAL)
+ 
+                
                 
             elif self.view_mode.get()==self.view_mode_2.get() == "sagittal":
                 slice_to_show = self.volume[:, :, self.current_slice_index]
