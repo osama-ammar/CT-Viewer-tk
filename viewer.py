@@ -9,6 +9,7 @@ import nrrd
 import utilities
 
 
+
 class VolumeViewer:
     def __init__(self, root):
         self.root = root
@@ -41,7 +42,7 @@ class VolumeViewer:
         self.open_volume_button = tk.Button(self.button_frame, text="Open npy Volume", command=self.open_volume, bg='#555555', fg='white')
         self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
 
-        self.open_volume_button = tk.Button(self.button_frame, text="Open nrrd", command=self.open_nrrd, bg='#555555', fg='white')
+        self.open_volume_button = tk.Button(self.button_frame, text="Open nrrd/nii", command=self.open_nrrd, bg='#555555', fg='white')
         self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
 
         self.open_image_button = tk.Button(self.button_frame, text="Open npy Image", command=self.open_image, bg='#555555', fg='white')
@@ -91,7 +92,7 @@ class VolumeViewer:
     def open_volume(self):
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy"), ("All Files", "*.*")])
         self.image=None
-        if file_path:
+        if file_path :
             self.volume = np.load(file_path)
             self.current_slice_index = 0
             
@@ -106,22 +107,28 @@ class VolumeViewer:
             self.update_slice(0)
 
     def open_nrrd(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy" ), ("All Files", "*.*")])
+        file_path = filedialog.askopenfilename(filetypes=[ ("All Files", "*.*")])
         self.image=None
-        if file_path:
+        if file_path and file_path.endswith("nrrd"):
             self.volume , header= nrrd.read(file_path)
             self.volume = np.transpose(self.volume, (2, 1, 0))
-            self.current_slice_index = 0
             
-            self.unique_labels = np.unique(self.volume)
-            self.wl_scale.config(from_=min(self.unique_labels), to=max(self.unique_labels)-1, state=tk.NORMAL)
-            self.wl_scale.config(from_=0, to=max(self.unique_labels) - 1, state=tk.NORMAL)
-            self.wl_scale.set(max(self.unique_labels))
-            self.ww_scale.set(max(self.unique_labels))
+            
+        if file_path and ".nii" in file_path:
+            self.volume , spacing= utilities.load_nifti(file_path)
+                     
+        print(self.volume.shape) 
+        self.current_slice_index = 0
+        
+        self.unique_labels = np.unique(self.volume)
+        self.wl_scale.config(from_=min(self.unique_labels), to=max(self.unique_labels)-1, state=tk.NORMAL)
+        self.wl_scale.config(from_=0, to=max(self.unique_labels) - 1, state=tk.NORMAL)
+        self.wl_scale.set(max(self.unique_labels))
+        self.ww_scale.set(max(self.unique_labels))
 
-            self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
-            self.slice_slider.set(0)
-            self.update_slice(0)
+        self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
+        self.slice_slider.set(0)
+        self.update_slice(0)
             
     def open_dicom_case(self):
         
