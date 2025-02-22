@@ -96,6 +96,10 @@ def npy_to_pyvista(volume,mode="madsk"):
         labels_mesh = label_map.contour_labeled(smoothing=True)
         _ = plotter.add_mesh(labels_mesh, cmap=custom_lut, show_scalar_bar=True)
         
+        # very very important interaction (work when using labels_mesh pyvista data object )
+        #plotter.add_mesh_slice(volume, assign_to_axis='z', interaction_event=vtk.vtkCommand.InteractionEvent)
+        #plotter.add_volume_clip_plane(volume, normal='-x', cmap='magma')
+        #plotter.add_mesh_clip_plane(label_map)
     else:
         volume=fix_mask_labels(volume)
         
@@ -107,10 +111,7 @@ def npy_to_pyvista(volume,mode="madsk"):
             show_scalar_bar=True,
         )
 
-    # very very important interaction
-    #plotter.add_mesh_slice(label_map, assign_to_axis='z', interaction_event=vtk.vtkCommand.InteractionEvent)
-    #plotter.add_volume_clip_plane(label_map, normal='-x', cmap='magma')
-    #plotter.add_mesh_clip_plane(label_map)
+
     
     
     plotter.view_zx()
