@@ -27,6 +27,13 @@ class VolumeViewer:
         self.unique_labels = None
         self.resized_image = None  # To store the resized image
         
+        self.slice_index = tk.StringVar()
+        self.slice_index.set("slice: 0")
+        self.wl_index= tk.StringVar()
+        self.wl_index.set("WL: 0") 
+        self.ww_index= tk.StringVar()
+        self.ww_index.set("WW: 0")
+        
         
         # Create a main frame for better organization
         self.main_frame = tk.Frame(root, bg='#333333')
@@ -78,18 +85,18 @@ class VolumeViewer:
         # Add sliders for adjusting window level and window width
         self.wl_scale = ttk.Scale(self.slider_frame, from_=-1000, to=4000, orient=tk.VERTICAL, length=400, command=self.update_wl)
         self.wl_scale.pack(side=tk.RIGHT, padx=5, pady=5)
-        self.wl_label = ttk.Label(self.slider_frame, text="Window Level", background='#333333', foreground='white')
+        self.wl_label = ttk.Label(self.slider_frame, text="WL", textvariable=self.wl_index, background='#333333', foreground='white')
         self.wl_label.pack(side=tk.RIGHT, padx=5, pady=5)
 
         self.ww_scale = ttk.Scale(self.slider_frame, from_=1, to=4000, orient=tk.VERTICAL, length=400, command=self.update_ww)
         self.ww_scale.pack(side=tk.RIGHT, padx=5, pady=5)
-        self.ww_label = ttk.Label(self.slider_frame, text="Window Width", background='#333333', foreground='white')
+        self.ww_label = ttk.Label(self.slider_frame, text="WW", textvariable=self.ww_index, background='#333333', foreground='white')
         self.ww_label.pack(side=tk.RIGHT, padx=5, pady=5)
 
         # Add a slider for navigating through slices
         self.slice_slider = ttk.Scale(self.slider_frame, from_=0, to=1, orient=tk.VERTICAL, length=400, command=self.update_slice)
         self.slice_slider.pack(side=tk.RIGHT, padx=5, pady=5)
-        self.slice_label = ttk.Label(self.slider_frame, text="Slice", background='#333333', foreground='white')
+        self.slice_label = ttk.Label(self.slider_frame, text="Slice", textvariable=self.slice_index, background='#333333', foreground='white')
         self.slice_label.pack(side=tk.RIGHT, padx=5, pady=5)
 
         # Label to display pixel values
@@ -212,6 +219,7 @@ class VolumeViewer:
                     
     def update_slice(self, val):
         self.current_slice_index = int(self.slice_slider.get())
+        self.slice_index.set(f"slice: { self.current_slice_index}") 
         
         if self.image is not None:
             slice_to_show = self.image
@@ -270,10 +278,12 @@ class VolumeViewer:
         
     def update_wl(self, val):
         self.window_level = int(self.wl_scale.get())
+        self.wl_index.set(f"wl: { self.window_level}") 
         self.update_slice(self.current_slice_index)
 
     def update_ww(self, val):
         self.window_width = int(self.ww_scale.get())
+        self.ww_index.set(f"ww: { self.window_width}") 
         self.update_slice(self.current_slice_index)
 
     def on_mousewheel(self, event):
