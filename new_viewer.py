@@ -128,14 +128,13 @@ class VolumeViewer:
         file_path = filedialog.askopenfilename(filetypes=[("All Files", "*.*")])
         self.image = None
         if file_path and file_path.endswith("nrrd"):
-            self.volume_type = "dicom"
+            self.volume_type = "nrrd"
             self.volume, header = nrrd.read(file_path)
-            self.volume = np.transpose(self.volume, (2, 1, 0))
+
         if file_path and ".nii" in file_path:
             self.volume, spacing = utilities.load_nifti(file_path)
-            self.volume = np.transpose(self.volume, (2, 1, 0))
             
-        
+        self.volume = np.transpose(self.volume, (2, 1, 0))
         print(self.volume.shape)
         self.current_slice_index = 0
         self.unique_labels = np.unique(self.volume)
