@@ -213,13 +213,15 @@ class VolumeViewer:
             if self.view_mode.get() == "axial":
                 self.slice_slider.config(from_=0, to=self.volume.shape[0] - 1, state=tk.NORMAL)
             elif self.view_mode.get() == "sagittal":
-                self.slice_slider.config(from_=0, to=self.volume.shape[1] - 1, state=tk.NORMAL)
-            elif self.view_mode.get() == "coronal":
                 self.slice_slider.config(from_=0, to=self.volume.shape[2] - 1, state=tk.NORMAL)
+            elif self.view_mode.get() == "coronal":
+                self.slice_slider.config(from_=0, to=self.volume.shape[1] - 1, state=tk.NORMAL)
                     
     def update_slice(self, val):
         self.current_slice_index = int(self.slice_slider.get())
         self.slice_index.set(f"slice: { self.current_slice_index}") 
+        #print(f"slice: { self.current_slice_index}") 
+        #print(self.volume.shape)
         
         if self.image is not None:
             slice_to_show = self.image
