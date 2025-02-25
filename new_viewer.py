@@ -324,9 +324,10 @@ class VolumeViewer:
 
     def export_stl_vtk(self):
         if self.volume is not None:
-            file_path = filedialog.asksaveasfilename(defaultextension=".stl", filetypes=[("STL files", "*.stl")])
-            if file_path:
-                utilities.export_volume_as_stl_vtk(self.volume, file_path, self.window_level, self.window_width)
+            # file_path = filedialog.asksaveasfilename(defaultextension=".stl", filetypes=[("STL files", "*.stl")])
+            # if file_path:
+            #     utilities.export_volume_as_stl_vtk(self.volume, file_path, self.window_level, self.window_width)
+            utilities.npy_to_colored_mesh(self.volume)
 
     def open_3d_view(self):
         plotter = utilities.npy_to_pyvista(self.volume)
