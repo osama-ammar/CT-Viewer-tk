@@ -97,9 +97,14 @@ class VolumeViewer:
         self.axial_radio_button=tk.Radiobutton(radio_buttons_frame, text="Axial", variable=self.view_mode, value="axial", command=self.update_view, bg='#333333', fg='white')
         self.sagittal_radio_button=tk.Radiobutton(radio_buttons_frame, text="Sagittal", variable=self.view_mode, value="sagittal", command=self.update_view, bg='#333333', fg='white')
         self.coronal_radio_button=tk.Radiobutton(radio_buttons_frame, text="Coronal", variable=self.view_mode, value="coronal", command=self.update_view, bg='#333333', fg='white')
+        self.save_slice_button = tk.Button(radio_buttons_frame, text="save slice(npy)", command=self.save_current_npy_slice, bg='#555555', fg='white')
+
+        
         self.axial_radio_button.pack(side=tk.LEFT, padx=5, pady=5)
         self.coronal_radio_button.pack(side=tk.LEFT, padx=5, pady=5)
         self.sagittal_radio_button.pack(side=tk.LEFT, padx=5, pady=5)
+        self.save_slice_button.pack(side=tk.LEFT, padx=5, pady=5)
+        
 
         self.slice_slider = tk.Scale(image_frame, from_=0, to=1, orient=tk.VERTICAL, resolution=1, command=self.update_slice, length=300)
         self.slice_slider.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
@@ -330,7 +335,12 @@ class VolumeViewer:
             print(self.volume_2.shape)
         
         # later : return dicom info to be displayed laterwith the volume
+    def save_current_npy_slice(self):
+        save_folder_path = filedialog.askdirectory()
+        np.save(f"{save_folder_path}/{self.case_name}_slice_{self.current_slice_index}.npy" , self.volume[self.current_slice_index])
+        print("current slice is saved as npy array ")
         
+
     def open_image(self):
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy")])
         self.case_name = os.path.basename(file_path)
