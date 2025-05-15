@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import ttk, filedialog
 import numpy as np
 from PIL import Image, ImageTk
 import pydicom
@@ -7,284 +7,566 @@ import os
 import pyvista as pv
 import nrrd
 import utilities
-
-
+import time
+from functools import lru_cache
+import sv_ttk  # For Sun Valley theme
+from concurrent.futures import ThreadPoolExecutor
 
 class VolumeViewer:
     def __init__(self, root):
         self.root = root
         self.root.title("3D Volume Viewer")
-
-        # Set the initial dimensions of the window
-        self.root.geometry("1000x900")  # Adjust the dimensions as needed
+        self.root.geometry("1200x900")
         
-        # Configure a dark background
-        self.root.configure(bg='#333333')        
-        
+        # Set theme
+        sv_ttk.set_theme("dark")
         
         # Initialize variables
         self.volume = None
+        self.mask = None
         self.image = None 
         self.current_slice_index = 0
-        self.window_level = 400  # Initial value, adjust as needed
-        self.window_width = 2000  # Initial value, adjust as needed
-        self.view_mode = tk.StringVar(value="axial")  # Default to axial view
+        self.window_level = 400
+        self.window_width = 2000
+        self.view_mode = tk.StringVar(value="axial")
         self.volume_type = "npy"
         self.pyvista_mesh = None
-        self.unique_labels =None
+        self.unique_labels = None
+        self._last_canvas_size = (0, 0)
+        self._last_wheel_time = 0
+        self._mask_colors_cache = None
+        
+        self.file_name = None
+        self.main_folder_path = None
+
+        
+        # Create UI elements
+        self.create_ui()
+        
+    def create_ui(self):
+        """Initialize all UI components"""
+        # Create main container
+        self.main_container = ttk.Frame(self.root)
+        self.main_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Create left panel for series list
+        self.left_panel = ttk.Frame(self.main_container, width=200)
+        self.left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
         
         
-        # Create a frame for buttons
-        self.button_frame = tk.Frame(root, bg='#333333')
-        self.button_frame.pack(side=tk.TOP, padx=10, pady=10)
+        # Create control panel on the right
+        self.control_panel = ttk.Frame(self.main_container, width=250)
+        self.control_panel.pack(side=tk.RIGHT, fill=tk.Y, padx=(10, 0))
+        
+        # Create viewer panel
+        self.viewer_panel = ttk.Frame(self.main_container)
+        self.viewer_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Add left panel components
+        self.create_left_panel_components()
+            
+        # Add buttons to control panel
+        self.create_buttons()
+        
+        # Add view mode selector
+        self.create_view_mode_selector()
+        
+        # Add sliders
+        self.create_sliders()
+        
+        # Create viewer area
+        self.create_viewer()
+        
+        # Status bar
+        self.status_bar = ttk.Frame(self.root)
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(0, 10))
+        
+        self.pixel_value_label = ttk.Label(self.status_bar, text="Pixel Value: ")
+        self.pixel_value_label.pack(side=tk.LEFT)
+        
+        self.case_name_label = ttk.Label(self.status_bar, text="   Case: ")
+        self.case_name_label.pack(side=tk.LEFT)
+        
+    def create_buttons(self):
+        """Create control buttons"""
+        button_frame = ttk.LabelFrame(self.control_panel, text="File Operations", padding=10)
+        button_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        buttons = [
+            ("Open Volume", self.open_volume),
+            ("Open npy Image", self.open_image),
+            ("Open dicom", self.open_dicom_case),
+            ("Export as STL", self.export_stl_vtk),
+            ("Blend mask", self.show_mask_overlay),
+            ("Show 3D", self.open_3d_view)
+        ]
+        
+        for text, command in buttons:
+            btn = ttk.Button(button_frame, text=text, command=command)
+            btn.pack(fill=tk.X, pady=2)
+            
+    # customize this function according to structure of your dataset
+    def on_series_select(self, event):
+        """Handle selection of a series from the listbox"""
+        selection = self.series_listbox.curselection()
+        if selection:
+            selected_folder = self.series_listbox.get(selection[0])
+            full_path = os.path.join(self.current_folder_path, selected_folder)
+            # Here you can add code to load the selected series
+            print(f"Selected folder: {full_path}")  # Replace with your loading logic
+            self.main_folder_path = full_path
+            input_volume_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_CT.nrrd")
+            lower_teeth_mask_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_Lower.nrrd")
+            mand_mask_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_Mand.nrrd")
+            maxilla_mask_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_Max.nrrd")
+            upper_teeth_mask_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_Upper.nrrd")
+            
+            # clearing any previous cache
+            self._clear_volume_cache()
+            self.image = None
+            
+            with ThreadPoolExecutor() as executor:
+                future_volume = executor.submit(utilities.get_npy_from_nrrd_npy_path, input_volume_path)
+                future_mask   = executor.submit(utilities.images_and_masks_to_npy, *(mand_mask_path, maxilla_mask_path, upper_teeth_mask_path, lower_teeth_mask_path, selected_folder))
 
-        # Add buttons for opening volume and image (horizontal arrangement)
-        self.open_volume_button = tk.Button(self.button_frame, text="Open npy Volume", command=self.open_volume, bg='#555555', fg='white')
-        self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.open_volume_button = tk.Button(self.button_frame, text="Open nrrd/nii", command=self.open_nrrd, bg='#555555', fg='white')
-        self.open_volume_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.open_image_button = tk.Button(self.button_frame, text="Open npy Image", command=self.open_image, bg='#555555', fg='white')
-        self.open_image_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.open_dicom_button = tk.Button(self.button_frame, text="Open dicom", command=self.open_dicom_case, bg='#555555', fg='white')
-        self.open_dicom_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.export_stl_button = tk.Button(self.button_frame, text="Export as STL", command=self.export_stl_vtk, bg='#555555', fg='white')
-        self.export_stl_button.pack(side=tk.LEFT, padx=5, pady=5)
-
-        # Add radio buttons for view modes (axial, sagittal, coronal)
-        tk.Radiobutton(self.button_frame, text="Axial", variable=self.view_mode, value="axial", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT, padx=5, pady=5)
-        tk.Radiobutton(self.button_frame, text="Sagittal", variable=self.view_mode, value="sagittal", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT, padx=5, pady=5)
-        tk.Radiobutton(self.button_frame, text="Coronal", variable=self.view_mode, value="coronal", command=self.update_view, bg='#333333', fg='white').pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.show_3d = tk.Button(self.button_frame, text="Show 3D", command=self.open_3d_view, bg='#555555', fg='white')
-        self.show_3d.pack(side=tk.LEFT, padx=5, pady=5)
-
-
-        # Create Tkinter Canvas
-        self.canvas = tk.Canvas(root, bg='#222222')  # Set canvas background color
-        self.canvas.pack(side=tk.LEFT, padx=10, pady=10)
-
-        # Label to display pixel values
-        self.pixel_value_label = tk.Label(root, text="Pixel Value: ", bg='#333333', fg='white')
-        self.pixel_value_label.pack(side=tk.BOTTOM, padx=10, pady=10)
-
-        # Add sliders for adjusting window level and window width
-        self.wl_scale = tk.Scale(root, from_=-1000, to=4000, orient=tk.VERTICAL, label="WL", command=self.update_wl, length=400)
-        self.ww_scale = tk.Scale(root, from_=1, to=4000, orient=tk.VERTICAL, label="WW", command=self.update_ww, length=400)
-        self.ww_scale.pack(side=tk.RIGHT, padx=10, pady=10)
-        self.wl_scale.pack(side=tk.RIGHT, padx=10, pady=10)
-
-        # Add a slider for navigating through slices
-        self.slice_slider = tk.Scale(root, from_=0, to=1, orient=tk.VERTICAL, resolution=1, command=self.update_slice, length=400)
-        self.slice_slider.pack(side=tk.LEFT, padx=10, pady=10)
-
-        # Bind mouse wheel event to update the displayed slice
+                self.volume = future_volume.result()
+                self.mask = future_mask.result()
+            
+            #self.volume = utilities.get_npy_from_nrrd_npy_path(input_volume_path)
+            #input_volume_shape = self.volume.shape
+            #self.mask = utilities.images_and_masks_to_npy( mand_mask_path,input_volume_shape, maxilla_mask_path, upper_teeth_mask_path, lower_teeth_mask_path, case_id=selected_folder)
+            
+            self._initialize_volume_settings()
+            self._mask_colors_cache = None  # Clear cached colors
+            self.update_slice(self.current_slice_index)
+            self.file_name=selected_folder
+            
+    def create_left_panel_components(self):
+        """Create components for the left panel"""
+        # Button to select folder
+        self.select_folder_btn = ttk.Button(
+            self.left_panel, 
+            text="Select Folder", 
+            command=self.load_subfolders
+        )
+        self.select_folder_btn.pack(fill=tk.X, pady=(0, 10))
+        
+        # Listbox to display subfolders
+        self.series_listbox = tk.Listbox(
+            self.left_panel,
+            bg='#333333',
+            fg='white',
+            selectbackground='#555555',
+            selectforeground='white'
+        )
+        self.series_listbox.pack(fill=tk.BOTH, expand=True)
+        
+        # Bind double-click event
+        self.series_listbox.bind("<Double-Button-1>", self.on_series_select)
+        
+    
+    def create_view_mode_selector(self):
+        """Create view mode radio buttons"""
+        mode_frame = ttk.LabelFrame(self.control_panel, text="View Mode", padding=10)
+        mode_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        for mode in ["Axial", "Sagittal", "Coronal"]:
+            rb = ttk.Radiobutton(
+                mode_frame, 
+                text=mode, 
+                variable=self.view_mode,
+                value=mode.lower(), 
+                command=self.update_view
+            )
+            rb.pack(anchor=tk.W, pady=2)
+    
+    def create_sliders(self):
+        """Create control sliders"""
+        sliders_frame = ttk.LabelFrame(self.control_panel, text="Adjustments", padding=10)
+        sliders_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Slice slider
+        ttk.Label(sliders_frame, text="Slice").pack(anchor=tk.W)
+        self.slice_slider = ttk.Scale(
+            sliders_frame, 
+            from_=0, 
+            to=1, 
+            orient=tk.VERTICAL,
+            command=self.update_slice
+        )
+        self.slice_slider.pack(fill=tk.Y, expand=True, pady=5)
+        
+        # Window level/width sliders
+        wl_frame = ttk.Frame(sliders_frame)
+        wl_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Label(wl_frame, text="Window Level").pack(anchor=tk.W)
+        self.wl_scale = ttk.Scale(
+            wl_frame,
+            from_=-1000,
+            to=4000,
+            orient=tk.HORIZONTAL,
+            command=self.update_wl
+        )
+        self.wl_scale.pack(fill=tk.X)
+        
+        ww_frame = ttk.Frame(sliders_frame)
+        ww_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Label(ww_frame, text="Window Width").pack(anchor=tk.W)
+        self.ww_scale = ttk.Scale(
+            ww_frame,
+            from_=1,
+            to=4000,
+            orient=tk.HORIZONTAL,
+            command=self.update_ww
+        )
+        self.ww_scale.pack(fill=tk.X)
+    
+    def create_viewer(self):
+        """Create the image viewer canvas"""
+        viewer_frame = ttk.Frame(self.viewer_panel)
+        viewer_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Create canvas with border
+        self.canvas = tk.Canvas(viewer_frame, bg='black', highlightthickness=0)
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+        
+        # Bind events
         self.canvas.bind("<MouseWheel>", self.on_mousewheel)
-
-        # Bind mouse motion event to update pixel values
         self.canvas.bind("<Motion>", self.update_pixel_values)
-        
+        self.canvas.bind("<Configure>", self.on_canvas_resize)
 
-        
+    def on_canvas_resize(self, event):
+        """Handle canvas resize events"""
+        if hasattr(self, 'volume') and self.volume is not None:
+            self.update_slice(self.current_slice_index)
+
+    def load_subfolders(self):
+        """Load subfolders of selected directory into listbox"""
+        folder_path = filedialog.askdirectory()
+        if folder_path:
+            self.series_listbox.delete(0, tk.END)  # Clear current items
+            subfolders = [f for f in os.listdir(folder_path) 
+                        if os.path.isdir(os.path.join(folder_path, f))]
+            for folder in sorted(subfolders):
+                self.series_listbox.insert(tk.END, folder)
+            self.current_folder_path = folder_path  # Store the current folder path
+
     def open_volume(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy"), ("All Files", "*.*")])
-        self.image=None
-        if file_path :
-            self.volume = np.load(file_path)
-            self.current_slice_index = 0
-            
-            self.unique_labels = np.unique(self.volume)
-            self.wl_scale.config(from_=min(self.unique_labels), to=max(self.unique_labels)-1, state=tk.NORMAL)
-            self.wl_scale.config(from_=0, to=max(self.unique_labels) - 1, state=tk.NORMAL)
-            self.wl_scale.set(max(self.unique_labels))
-            self.ww_scale.set(max(self.unique_labels))
-
-            self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
-            self.slice_slider.set(0)
-            self.update_slice(0)
-
-    def open_nrrd(self):
-        file_path = filedialog.askopenfilename(filetypes=[ ("All Files", "*.*")])
-        self.image=None
-        if file_path and file_path.endswith("nrrd"):
-            self.volume , header= nrrd.read(file_path)
-            self.volume = np.transpose(self.volume, (2, 1, 0))
-            
-            
-        if file_path and ".nii" in file_path:
-            self.volume , spacing= utilities.load_nifti(file_path)
-                     
-        print(self.volume.shape) 
-        self.current_slice_index = 0
+        """Load an nrrd or nifti file"""
+        file_path = filedialog.askopenfilename(filetypes=[("All Files", "*.*")])
+        self.file_name= file_path.split("/")[-1]
+        self.case_name_label.config(text=f"   {self.file_name}")
         
-        self.unique_labels = np.unique(self.volume)
-        self.wl_scale.config(from_=min(self.unique_labels), to=max(self.unique_labels)-1, state=tk.NORMAL)
-        self.wl_scale.config(from_=0, to=max(self.unique_labels) - 1, state=tk.NORMAL)
-        self.wl_scale.set(max(self.unique_labels))
-        self.ww_scale.set(max(self.unique_labels))
+        if file_path:
+            self._clear_volume_cache()
+            self.image = None
+            self.volume = utilities.get_npy_from_nrrd_npy_path(file_path)
+            self._initialize_volume_settings()
+            print(f"loading volime {self.file_name} , shape : {self.volume.shape}")
 
-        self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
+            
+    def show_mask_overlay(self):
+        """Load and display mask overlay"""
+        file_path = filedialog.askopenfilename(filetypes=[("All Files", "*.*")])
+        if file_path:
+            self.mask = utilities.get_npy_from_nrrd_npy_path(file_path)
+            self._mask_colors_cache = None  # Clear cached colors
+            self.update_slice(self.current_slice_index)
+            
+    def _initialize_volume_settings(self):
+        """Common initialization for volume settings"""
+        self.current_slice_index = 0
+        self.unique_labels = np.unique(self.volume)
+        
+        max_val = max(self.unique_labels) if len(self.unique_labels) > 0 else 1
+        self.wl_scale.config(from_=0, to=max_val - 1)
+        self.wl_scale.set(max_val)
+        self.ww_scale.set(max_val)
+
+        self.slice_slider.config(from_=0, to=self.volume.shape[0] - 1)
         self.slice_slider.set(0)
         self.update_slice(0)
-            
+
+    def _clear_volume_cache(self):
+        """Clear cached data when loading new volume"""
+        self._mask_colors_cache = None
+        if hasattr(self.canvas, 'photo_image'):
+            self.canvas.photo_image = None
+
     def open_dicom_case(self):
-        
+        """Load DICOM series"""
         file_path = filedialog.askopenfilename(filetypes=[("Dicom files", "*.dcm")])
-        self.image=None
         if file_path:
-            # List to hold the slices
-            slices = []
+            self._clear_volume_cache()
+            self.image = None
             self.volume_type = "dicom"
-            dicom_folder = os.path.dirname(os.path.abspath(file_path))
-            # Loop through all files in the given directory
-            for filename in os.listdir(dicom_folder):
-                # Construct the full file path
-                filepath = os.path.join(dicom_folder, filename)
-                
-                # Try to read the file as a DICOM file
-                try:
-                    dicom_file = pydicom.dcmread(filepath)
-                    slices.append(dicom_file)
-                except Exception as e:
-                    print(f"Could not read {filepath}: {e}")
-
-            # Sort the slices by the InstanceNumber (or another relevant attribute)
-            slices.sort(key=lambda s: int(s.InstanceNumber))
-
-            # Create a 3D NumPy array from the DICOM slices
-            self.volume =np.stack([s.pixel_array for s in slices])
-            self.current_slice_index = 0
             
-            # Set specific window level and window width for the volume
-            # Update the window level and width sliders
+            slices = []
+            dicom_folder = os.path.dirname(os.path.abspath(file_path))
+            
+            for filename in os.listdir(dicom_folder):
+                filepath = os.path.join(dicom_folder, filename)
+                try:
+                    slices.append(pydicom.dcmread(filepath))
+                except Exception:
+                    continue
+
+            slices.sort(key=lambda s: int(s.InstanceNumber))
+            self.volume = np.stack([s.pixel_array for s in slices])
+            
+            self.current_slice_index = 0
             self.wl_scale.set(self.window_level)
             self.ww_scale.set(self.window_width)
             
-            self.slice_slider.config(from_=0, to=len(self.volume) - 1, state=tk.NORMAL)
+            self.slice_slider.config(from_=0, to=len(self.volume) - 1)
             self.slice_slider.set(0)
             self.update_slice(0)
-            print(self.volume.shape)
-        
-        # later : return dicom info to be displayed laterwith the volume
 
     def open_image(self):
+        """Load a 2D numpy image"""
         file_path = filedialog.askopenfilename(filetypes=[("Numpy files", "*.npy")])
-        #self.volume=None
         if file_path:
+            self._clear_volume_cache()
             self.image = np.load(file_path)
             self.current_slice_index = 0
-            self.slice_slider.config(from_=0, to=1, state=tk.NORMAL)
+            self.slice_slider.config(from_=0, to=1)
             self.slice_slider.set(0)
             self.update_slice(0)
- 
+            
+
+            
     def update_view(self):
-        """Update the view based on the selected view mode."""
+        """Update the view based on selected view mode"""
         self.update_slice(self.current_slice_index)
         
     def update_slice(self, val):
-        self.current_slice_index = int(self.slice_slider.get())
+        """Update the displayed slice"""
+        if isinstance(val, str):
+            val = float(val)
+        self.current_slice_index = int(val)
         
-        if self.image!=None:
+        if self.image is not None:
             slice_to_show = self.image
-        else :
+            self._display_slice(slice_to_show)
+            return
 
-            # Extract the appropriate slice based on the view mode
-            if self.view_mode.get() == "axial":
-                slice_to_show = self.volume[self.current_slice_index, :, :]
-                self.slice_slider.config(from_=0, to=self.volume.shape[0] - 1, state=tk.NORMAL)
-                
-            elif self.view_mode.get() == "sagittal":
-                slice_to_show = self.volume[:, :, self.current_slice_index]
-                self.slice_slider.config(from_=0, to=self.volume.shape[1] - 1, state=tk.NORMAL)
-                slice_to_show = np.flipud(slice_to_show) if self.volume_type == "npy" else slice_to_show
-                
-            elif self.view_mode.get() == "coronal":
-                slice_to_show = self.volume[:, self.current_slice_index, :]
-                # adjust slice slider because coronal images number is different
-                self.slice_slider.config(from_=0, to=self.volume.shape[2] - 1, state=tk.NORMAL)
-                slice_to_show = np.flipud(slice_to_show)  if self.volume_type == "npy" else slice_to_show
-                
-            
-            
-        # Adjust window level and window width
-        window_min = self.window_level - self.window_width / 2
-        window_max = self.window_level + self.window_width / 2
+        if self.volume is None:
+            return
 
-        # Ensure window_min is not greater than window_max (fix any bad configurations)
+        # Get the appropriate slice based on view mode
+        if self.view_mode.get() == "axial":
+            slice_to_show = self.volume[self.current_slice_index, :, :]
+            max_slices = self.volume.shape[0] - 1
+        elif self.view_mode.get() == "sagittal":
+            slice_to_show = self.volume[:, :, self.current_slice_index]
+            max_slices = self.volume.shape[2] - 1
+            if self.volume_type == "npy":
+                slice_to_show = np.flipud(slice_to_show)
+        elif self.view_mode.get() == "coronal":
+            slice_to_show = self.volume[:, self.current_slice_index, :]
+            max_slices = self.volume.shape[1] - 1
+            if self.volume_type == "npy":
+                slice_to_show = np.flipud(slice_to_show)
+
+        self.slice_slider.config(to=max_slices)
+        self._display_slice(slice_to_show)
+
+    @lru_cache(maxsize=32)
+    def _get_windowed_slice(self, slice_data, window_level, window_width):
+        """Apply windowing to slice data with caching"""
+        window_min = window_level - window_width / 2
+        window_max = window_level + window_width / 2
+        
         if window_min >= window_max:
             window_min = 0
             window_max = 255
             
-        # Clip values to the window level and width
-        slice_to_show = np.clip(slice_to_show, window_min, window_max)
-        slice_to_show = 255 * (slice_to_show - window_min) / (window_max - window_min)
+        clipped = np.clip(slice_data, window_min, window_max)
+        return 255 * (clipped - window_min) / (window_max - window_min)
 
+    def _display_slice(self, slice_to_show):
+        """Display the processed slice on canvas"""
+        if slice_to_show is None:
+            return
+        if self.volume is not None and self.mask is not None:
+            if  self.volume.shape != self.mask.shape:
+                print(f"volume and mask shapes are different , volume: {self.volume.shape} , mask: {self.mask.shape} ")
+            
+        # Apply windowing with caching
+        windowed_slice = self._get_windowed_slice(
+            tuple(slice_to_show.flatten()),  # Convert to tuple for hashability
+            self.window_level,
+            self.window_width
+        ).reshape(slice_to_show.shape).astype(np.uint8)
 
-        # Convert NumPy array to PIL Image
-        image = Image.fromarray(slice_to_show)
+        # Create base image
+        image = Image.fromarray(windowed_slice)
+        
+        # Apply mask if available
+        if self.mask is not None and hasattr(self, 'mask'):
+            mask_slice = self._get_mask_slice()
+            if mask_slice is not None:
+                colored_mask = self._get_colored_mask(mask_slice)
+                if colored_mask is not None:
+                    mask_image = Image.fromarray(colored_mask, 'RGBA')
+                    image = image.convert('RGBA')
+                    image = Image.alpha_composite(image, mask_image)
 
-        # Convert PIL Image to PhotoImage
+        # Resize image to fit canvas
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        
+        if canvas_width > 0 and canvas_height > 0:
+            if (canvas_width, canvas_height) != self._last_canvas_size:
+                self._last_canvas_size = (canvas_width, canvas_height)
+                
+            image_ratio = image.width / image.height
+            canvas_ratio = canvas_width / canvas_height
+            
+            if canvas_ratio > image_ratio:
+                new_height = canvas_height
+                new_width = int(image_ratio * new_height)
+            else:
+                new_width = canvas_width
+                new_height = int(new_width / image_ratio)
+                
+            image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+        # Display the image
+        if hasattr(self.canvas, 'photo_image'):
+            self.canvas.photo_image = None  # Clear old reference
+            
         photo_image = ImageTk.PhotoImage(image)
+        self.canvas.create_image(canvas_width // 2, canvas_height // 2, 
+                               anchor=tk.CENTER, image=photo_image)
+        self.canvas.photo_image = photo_image  # Keep reference
 
-        # Update the Canvas with the new PhotoImage
-        self.canvas.config(width=image.width, height=image.height)
-        self.canvas.create_image(0, 0, anchor=tk.NW, image=photo_image)
-        self.canvas.photo_image = photo_image  # Prevent the PhotoImage from being garbage collected
+    def _get_mask_slice(self):
+        """Get the appropriate mask slice for current view"""
+        if self.view_mode.get() == "axial":
+            return self.mask[self.current_slice_index, :, :]
+        elif self.view_mode.get() == "sagittal":
+            mask_slice = self.mask[:, :, self.current_slice_index]
+            return mask_slice if self.volume_type == "dicom" else np.flipud(mask_slice)
+        elif self.view_mode.get() == "coronal":
+            mask_slice = self.mask[:, self.current_slice_index, :]
+            return mask_slice if self.volume_type == "dicom" else np.flipud(mask_slice)
+        return None
 
+    def _get_colored_mask(self, mask_slice):
+        """Get colored mask with caching"""
+        if self._mask_colors_cache is None:
+            mask_labels = np.unique(self.mask).astype(np.uint8).tolist()
+            self._mask_colors_cache = {
+                label: color 
+                for label, color in zip(
+                    mask_labels, 
+                    utilities.get_pathology_colors(mask_labels)
+                )
+            }
+        
+        colored_mask = np.zeros((mask_slice.shape[0], mask_slice.shape[1], 4), dtype=np.uint8)
+        mask_slice = mask_slice.astype(np.uint8)
+        
+        for label, color in self._mask_colors_cache.items():
+            colored_mask[mask_slice == label] = color
+            
+        return colored_mask
 
     def update_wl(self, val):
-        self.window_level = int(self.wl_scale.get())
+        """Update window level"""
+        self.window_level = int(float(val))
+        self._get_windowed_slice.cache_clear()  # Clear cached slices
         self.update_slice(self.current_slice_index)
 
     def update_ww(self, val):
-        self.window_width = int(self.ww_scale.get())
+        """Update window width"""
+        self.window_width = int(float(val))
+        self._get_windowed_slice.cache_clear()  # Clear cached slices
         self.update_slice(self.current_slice_index)
 
     def update_pixel_values(self, event):
-        x, y = event.x, event.y
+        """Update pixel value display"""
+        if self.volume is None:
+            return
 
-        # TODO: this sfould be modified to account for other orthogonal views + there's a problem here with mouse position and x , y
-        if self.volume is not None:
-            try:
-                pixel_value = self.volume[self.current_slice_index][int(y)+1][int(x)+1]
-            except IndexError:
-                pixel_value = 0
+        x, y = event.x, event.y
+        try:
+            # Adjust coordinates based on image scaling
+            img_width = self.canvas.winfo_width()
+            img_height = self.canvas.winfo_height()
+            
+            # Get the displayed image dimensions
+            if hasattr(self.canvas, 'photo_image'):
+                disp_width = self.canvas.photo_image.width()
+                disp_height = self.canvas.photo_image.height()
                 
-            self.pixel_value_label.config(text=f"Pixel Value: {pixel_value} , pixel Location :{int(y), int(x)}")
+                # Calculate actual image position
+                x_img = int((x - (img_width - disp_width) // 2) * self.volume.shape[2] / disp_width)
+                y_img = int((y - (img_height - disp_height) // 2) * self.volume.shape[1] / disp_height)
+                
+                if 0 <= x_img < self.volume.shape[2] and 0 <= y_img < self.volume.shape[1]:
+                    if self.view_mode.get() == "axial":
+                        pixel_value = self.volume[self.current_slice_index, y_img, x_img]
+                    elif self.view_mode.get() == "sagittal":
+                        pixel_value = self.volume[y_img, x_img, self.current_slice_index]
+                    elif self.view_mode.get() == "coronal":
+                        pixel_value = self.volume[y_img, self.current_slice_index, x_img]
+                    
+                    self.pixel_value_label.config(
+                        text=f"Pixel Value: {pixel_value}, Location: ({x_img}, {y_img})"
+                    )
+                    return
+        except (IndexError, AttributeError):
+            pass
+            
+        self.pixel_value_label.config(text="Pixel Value: N/A")
 
     def on_mousewheel(self, event):
+        """Handle mouse wheel events with throttling"""
+        current_time = time.time()
+        if current_time - self._last_wheel_time < 0.1:  # 100ms throttle
+            return
+        self._last_wheel_time = current_time
         
-        # Determine the direction of the mouse wheel scroll
-        delta = event.delta
-        # Update the current slice index based on the mouse wheel direction
-        if delta > 0:  # Scrolling up
-            self.current_slice_index+=1
-        else:  # Scrolling down
-            self.current_slice_index -=1
-        # Update the displayed slice
-        self.slice_slider.set(self.current_slice_index)
-        self.update_slice(self.current_slice_index)
+        delta = 1 if event.delta > 0 else -1
+        new_index = self.current_slice_index + delta
+        
+        # Clamp to valid range
+        max_slices = self.slice_slider.cget("to")
+        new_index = max(0, min(new_index, max_slices))
+        
+        if new_index != self.current_slice_index:
+            self.current_slice_index = new_index
+            self.slice_slider.set(new_index)
+            self.update_slice(new_index)
 
     def export_stl_vtk(self):
+        """Export volume as STL"""
         if self.volume is not None:
-            file_path = filedialog.asksaveasfilename(defaultextension=".stl", filetypes=[("STL files", "*.stl")])
-
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".stl", 
+                filetypes=[("STL files", "*.stl")]
+            )
             if file_path:
-                utilities.export_volume_as_stl_vtk(self.volume,file_path,self.window_level,self.window_width)
+                utilities.export_volume_as_stl_vtk(
+                    self.volume, file_path,
+                    self.window_level, self.window_width
+                )
 
     def open_3d_view(self):
-        #plotter = utilities.open_3d_view(self.volume,self.window_level,self.window_width)
-        plotter = utilities.npy_to_pyvista(self.volume)
-        plotter.show()
- 
+        """Show 3D view of volume"""
+        if self.volume is not None:
+            plotter = utilities.npy_to_pyvista(self.volume)
+            plotter.show()
+
+
 def main():
     root = tk.Tk()
-    root.configure(bg='#333333')  # Set the overall background color
     volume_viewer = VolumeViewer(root)
     root.mainloop()
 
 if __name__ == "__main__":
-    main()  
+    main()

@@ -4,8 +4,51 @@ import pyvista as pv
 from vtkmodules.util import numpy_support #very tricky issue (using vtkmodules.util insted of  vtk.util ) both will work but when converting to exe vtk.util will not work
 import nibabel as nib
 import matplotlib.pyplot as plt
+import random
+import numpy as np
+import pyvista as pv
+from pyvista import examples
+import nrrd
 
 
+
+
+def get_npy_from_nrrd_npy_path(file_path):
+        if file_path.endswith("npy"):
+            volume = np.load(file_path)
+        if file_path.endswith("nrrd"):
+            volume, _ = nrrd.read(file_path)
+            volume = np.transpose(volume, (2, 1, 0))
+        elif ".nii" in file_path:
+            volume, _ = load_nifti(file_path)
+    
+        return volume
+    
+    
+def images_and_masks_to_npy(  mand_mask_path, maxilla_mask_path, upper_mask_path, lower_mask_path, case_id=None):
+    # fixing image and masks sizes (flipping z)
+    
+    # TODO (osama):using np.memmap(image_path, dtype='float32', mode='r', shape=(128, 128, 512))
+    #zero_array = np.zeros(input_volume_shape)
+    mand_mask_mask = get_npy_from_nrrd_npy_path(
+        mand_mask_path) if mand_mask_path != None else None
+    max_mask_volume = get_npy_from_nrrd_npy_path(
+        maxilla_mask_path) if maxilla_mask_path != None else None
+    upper_mask_volume = get_npy_from_nrrd_npy_path(
+        upper_mask_path) if upper_mask_path != None else None
+    lower_mask_volume = get_npy_from_nrrd_npy_path(
+        lower_mask_path) if lower_mask_path != None else None
+    # print(np.unique(combined_mask), np.unique(max_mask_volume), np.unique(
+    #     upper_mask_volume), np.unique(combined_mask), np.unique(lower_mask_volume),)
+
+    whole_mask_list = [mand_mask_mask,
+                       max_mask_volume*2, (upper_mask_volume)*3, (lower_mask_volume)*4]
+    
+    whole_mask_array = sum([i for i in whole_mask_list if i is not None])
+    print(whole_mask_array.shape)
+
+
+    return  whole_mask_array
 
 
 
@@ -29,8 +72,12 @@ def fix_mask_labels(mask_array):
         mask_array[mask_array==label]=i
     return mask_array    
     
-    
-    
+SEGMENTATION_COLORS=[(0, 0, 0, 0)] + [(random.uniform(0, 255.999), random.uniform(0, 255.999), random.uniform(0, 255.999), 130) for _ in range(28)]
+def get_pathology_colors(
+    mask_labels=None
+):
+    colors = SEGMENTATION_COLORS
+    return colors
     
 def create_auto_label_lookup_table(label_values, colormap="tab10"):
     """
@@ -53,7 +100,6 @@ def create_auto_label_lookup_table(label_values, colormap="tab10"):
         print(i,*color / 255)
     return lut
 
-
 def npy_array_to_pyvista_data(npy_array , spacing=(1.0, 1.0, 1.0),origin = (0.0, 0.0, 0.0) ):
     
     # Create the UniformGrid
@@ -69,15 +115,11 @@ def npy_array_to_pyvista_data(npy_array , spacing=(1.0, 1.0, 1.0),origin = (0.0,
     
     return grid , unique_voxel_values
 
-
-
 # Function to clip the volume and update the plot
 def update_clipping(volume ,plotter, min_val=None, max_val=None):
     # Clip the volume to the range
     pass
     
-
-from pyvista import examples
 def npy_to_pyvista(volume,mode="madsk"):
     # Use PyVista's color map (or specify your own)
     
@@ -118,89 +160,6 @@ def npy_to_pyvista(volume,mode="madsk"):
 
     return plotter
 
-
-
-import numpy as np
-import pyvista as pv
-def create_auto_label_lookup_table(unique_labels):
-    """Create a lookup table for labels with random colors in the range [0, 1]."""
-    import random
-    lut = {}
-    for label in unique_labels:
-        if label == 0:  # Skip background
-            continue
-        lut[label] = [random.random(), random.random(), random.random()]
-
-    return lut
-
-
-import numpy as np
-import pyvista as pv
-
-def npy_to_colored_mesh(volume, output_file="output.ply"):
-    # Fix mask labels (if needed)
-    volume = fix_mask_labels(volume)
-
-    # Convert the volume to a PyVista dataset
-    label_map, unique_voxel_values = npy_array_to_pyvista_data(volume)
-
-    if label_map.cell_data:
-        label_map = label_map.cell_data_to_point_data()
-
-    # Create a lookup table for colors
-    custom_lut = {
-        1.0: [0.7752098806867631, 0.1306064383690987, 0.8437576388762167],
-        2.0: [0.8008656386418762, 0.3294719428647084, 0.14044659884433752],
-        3.0: [0.3387886440096143, 0.27614631931015277, 0.04894469244317201],
-        4.0: [0.423270741111495, 0.03230702211236092, 0.8815410748921367],
-        5.0: [0.09741415679782917, 0.18762531319554532, 0.9772314746248427],
-        6.0: [0.9266788796126396, 0.7194148867701912, 0.16177991821960125],
-        7.0: [0.2420561524569047, 0.579772339975456, 0.5752011694238277],
-        8.0: [0.8340624185572977, 0.11644644811808558, 0.1780692798478587],
-        9.0: [0.7591728627293507, 0.24907286650833804, 0.401979254267959],
-        10.0: [0.5502268844974432, 0.8679952905581659, 0.14503719156594264],
-        11.0: [0.05603794782167015, 0.38446552611622276, 0.4489681958476418],
-        12.0: [0.5968552223947956, 0.3360718000121661, 0.5344166977655997],
-        13.0: [0.12828977064102443, 0.8946793436768321, 0.05215896602597103],
-        14.0: [0.9052368992946301, 0.7496235858280192, 0.2900096807357414],
-        15.0: [0.5685592844808667, 0.5823765411904269, 0.19288958056930627],
-        16.0: [0.8877469030377194, 0.21347936934119127, 0.18784477100160013],
-        17.0: [0.17894755864544187, 0.7877600339617247, 0.6050779321116121],
-    }
-
-    # Extract meshes for each label
-    combined_mesh = pv.PolyData()
-    for label in unique_voxel_values:
-        if label == 0:  # Skip background
-            continue
-
-        # Extract the mesh for the current label
-        single_label_mesh = label_map.threshold([label - 0.5, label + 0.5])
-
-        # Convert the mesh to PolyData if it's not already
-        if not isinstance(single_label_mesh, pv.PolyData):
-            single_label_mesh = single_label_mesh.extract_surface().triangulate()
-
-        # Assign a color to the mesh based on the label
-        color = custom_lut.get(label, [0.5, 0.5, 0.5])  # Default to gray if label not in custom_lut
-
-        # Convert color to uint8 in the range [0, 255]
-        color_uint8 = (np.array(color) * 255).astype(np.uint8)
-        single_label_mesh["colors"] = np.tile(color_uint8, (single_label_mesh.n_points, 1))
-
-        # Append the mesh to the combined mesh
-        combined_mesh += single_label_mesh
-
-    # Save the combined mesh with colors
-    if output_file.endswith(".ply"):
-        combined_mesh.save(output_file, texture="colors")
-    elif output_file.endswith(".obj"):
-        combined_mesh.save(output_file, texture="colors")
-    else:
-        raise ValueError("Unsupported file format. Use .ply or .obj.")
-
-    print(f"Saved colored mesh to {output_file}")
-
 def createMIP(np_img, slices_num = 15):
     ''' create the mip image from original image, slice_num is the number of 
     slices for maximum intensity projection'''
@@ -213,17 +172,7 @@ def createMIP(np_img, slices_num = 15):
 
 
 def load_nifti(filepath):
-    """
-    Loads a NIfTI (.nii, .nii.gz) medical image file and extracts voxel data and spacing.
 
-    Args:
-        filepath (str): Path to the NIfTI file.
-
-    Returns:
-        tuple: (numpy.ndarray, voxel_spacing)
-            - Image array (H, W, D) or (H, W, D, C) if multi-channel.
-            - Voxel spacing in mm as a tuple (sx, sy, sz).
-    """
     img = nib.load(filepath)
     data = np.array(img.get_fdata())  # Image data in NumPy format
 
