@@ -24,27 +24,28 @@ def get_npy_from_nrrd_npy_path(file_path):
     
         return volume
     
-    
+import os
 def images_and_masks_to_npy(  mand_mask_path, maxilla_mask_path, upper_mask_path, lower_mask_path, case_id=None):
     # fixing image and masks sizes (flipping z)
     
     # TODO (osama):using np.memmap(image_path, dtype='float32', mode='r', shape=(128, 128, 512))
     #zero_array = np.zeros(input_volume_shape)
+
     mand_mask_mask = get_npy_from_nrrd_npy_path(
-        mand_mask_path) if mand_mask_path != None else None
+        mand_mask_path) if os.path.exists(mand_mask_path)  else None
     max_mask_volume = get_npy_from_nrrd_npy_path(
-        maxilla_mask_path) if maxilla_mask_path != None else None
+        maxilla_mask_path) if os.path.exists(maxilla_mask_path)  else None
     upper_mask_volume = get_npy_from_nrrd_npy_path(
-        upper_mask_path) if upper_mask_path != None else None
+        upper_mask_path) if os.path.exists(upper_mask_path)  else None
     lower_mask_volume = get_npy_from_nrrd_npy_path(
-        lower_mask_path) if lower_mask_path != None else None
+        lower_mask_path) if os.path.exists(lower_mask_path)  else None
     # print(np.unique(combined_mask), np.unique(max_mask_volume), np.unique(
     #     upper_mask_volume), np.unique(combined_mask), np.unique(lower_mask_volume),)
 
     whole_mask_list = [mand_mask_mask,
-                       max_mask_volume*2, (upper_mask_volume)*3, (lower_mask_volume)*4]
-    
-    whole_mask_array = sum([i for i in whole_mask_list if i is not None])
+                       max_mask_volume, upper_mask_volume,lower_mask_volume]
+
+    whole_mask_array = sum([i*(index+1) for index , i in enumerate(whole_mask_list) if i is not None])
     print(whole_mask_array.shape)
 
 
