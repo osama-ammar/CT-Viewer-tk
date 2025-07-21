@@ -9,7 +9,11 @@
 
 # data files
 dataset/
+data/
+dist/
+build/
 *.npy
+tkinter-env/
 
 
 # Python Tools for Visual Studio (PTVS)
@@ -39,3 +43,5 @@ events.*
 #models
 *.pt
 *.pth
+data/131039 - KAREN NEWELL/export1.dcm
+tkinter-env/Lib/site-packages/_pyinstaller_hooks_contrib/stdhooks/hook-bleak.py
