@@ -1,19 +1,18 @@
-# volume_viewer.spec
+# -*- mode: python ; coding: utf-8 -*-
+
 block_cipher = None
 
 a = Analysis(
-    ['viewer.py'],  # Your main script
+    ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],  # Add data files if needed (e.g., icons, configs)
+    datas=[],
     hiddenimports=[
-        'pydicom',
-        'numpy',
-        'PIL',
-        'pyvista',
-        'nrrd',
-        'sv_ttk',
-        'utilities'  # If you have a custom utilities.py
+        'matplotlib.backends.backend_qt5agg',
+        'pydicom.encoders.gdcm',
+        'pydicom.encoders.pylibjpeg',
+        'vtkmodules',
+        'vtkmodules.all',
     ],
     hookspath=[],
     hooksconfig={},
@@ -33,18 +32,13 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='VolumeViewer',  # Name of the .exe
+    name='CTViewer',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,  # Compress executable (recommended)
+    upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # Set to False for no console window
-    icon='icon.ico',  # Optional: Add an .ico file for the app icon
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
+    console=False,  # Set to True if you need console output
+    icon='icon.ico',  # Optional: add if you have an icon
 )

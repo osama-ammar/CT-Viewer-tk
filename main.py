@@ -16,7 +16,7 @@ class VolumeViewer:
     def __init__(self, root):
         self.root = root
         self.root.title("3D Volume Viewer")
-        self.root.geometry("1200x900")
+        self.root.geometry("1400x900")
         
         # Set theme
         sv_ttk.set_theme("dark")
@@ -186,7 +186,8 @@ class VolumeViewer:
         sliders_frame.pack(fill=tk.BOTH, expand=True)
         
         # Slice slider
-        ttk.Label(sliders_frame, text="Slice").pack(anchor=tk.W)
+        self.slice_label = ttk.Label(sliders_frame, text=f"Slice {self.current_slice_index}")
+        self.slice_label.pack(anchor=tk.W)
         self.slice_slider = ttk.Scale(
             sliders_frame, 
             from_=0, 
@@ -200,7 +201,8 @@ class VolumeViewer:
         wl_frame = ttk.Frame(sliders_frame)
         wl_frame.pack(fill=tk.X, pady=5)
         
-        ttk.Label(wl_frame, text="Window Level").pack(anchor=tk.W)
+        self.window_level_label  = ttk.Label(wl_frame, text=f"Window Level: {self.window_level}")
+        self.window_level_label.pack(anchor=tk.W)
         self.wl_scale = ttk.Scale(
             wl_frame,
             from_=-1000,
@@ -213,7 +215,8 @@ class VolumeViewer:
         ww_frame = ttk.Frame(sliders_frame)
         ww_frame.pack(fill=tk.X, pady=5)
         
-        ttk.Label(ww_frame, text="Window Width").pack(anchor=tk.W)
+        self.window_width_label=ttk.Label(ww_frame, text=f"Window Width: {self.window_width}")
+        self.window_width_label.pack(anchor=tk.W)
         self.ww_scale = ttk.Scale(
             ww_frame,
             from_=1,
@@ -371,6 +374,7 @@ class VolumeViewer:
                 slice_to_show = np.flipud(slice_to_show)
 
         self.slice_slider.config(to=max_slices)
+        self.slice_label.config(text=f"Slice {self.current_slice_index}")
         self._display_slice(slice_to_show)
 
     @lru_cache(maxsize=32)
@@ -478,12 +482,14 @@ class VolumeViewer:
     def update_wl(self, val):
         """Update window level"""
         self.window_level = int(float(val))
+        self.window_level_label.config(text=f"Window Level: {self.window_level}")
         self._get_windowed_slice.cache_clear()  # Clear cached slices
         self.update_slice(self.current_slice_index)
 
     def update_ww(self, val):
         """Update window width"""
         self.window_width = int(float(val))
+        self.window_width_label.config(text=f"Window Width: {self.window_width}")
         self._get_windowed_slice.cache_clear()  # Clear cached slices
         self.update_slice(self.current_slice_index)
 
