@@ -71,6 +71,9 @@ class VolumeViewer:
         # Add view mode selector
         self.create_view_mode_selector()
         
+        # Add Magic mode selector ( for MIP and other future non standard methods)
+        self.create_magic_mode_selector()
+        
         # Add sliders
         self.create_sliders()
         
@@ -105,41 +108,49 @@ class VolumeViewer:
             btn = ttk.Button(button_frame, text=text, command=command)
             btn.pack(fill=tk.X, pady=2)
             
+            
     # customize this function according to structure of your dataset
     def on_series_select(self, event):
         """Handle selection of a series from the listbox"""
         selection = self.series_listbox.curselection()
-        if selection:
-            selected_folder = self.series_listbox.get(selection[0])
-            full_path = os.path.join(self.current_folder_path, selected_folder)
-            # Here you can add code to load the selected series
-            print(f"Selected folder: {full_path}")  # Replace with your loading logic
-            self.main_folder_path = full_path
-            input_volume_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_CT.nrrd")
-            lower_teeth_mask_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_Lower.nrrd")
-            mand_mask_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_Mand.nrrd")
-            maxilla_mask_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_Max.nrrd")
-            upper_teeth_mask_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_Upper.nrrd")
+    
+    
+           
+    # customize this function according to structure of your dataset
+    # def on_series_select(self, event):
+    #     """Handle selection of a series from the listbox"""
+    #     selection = self.series_listbox.curselection()
+    #     if selection:
+    #         selected_folder = self.series_listbox.get(selection[0])
+    #         full_path = os.path.join(self.current_folder_path, selected_folder)
+    #         # Here you can add code to load the selected series
+    #         print(f"Selected folder: {full_path}")  # Replace with your loading logic
+    #         self.main_folder_path = full_path
+    #         input_volume_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_CT.nrrd")
+    #         lower_teeth_mask_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_Lower.nrrd")
+    #         mand_mask_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_Mand.nrrd")
+    #         maxilla_mask_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_Max.nrrd")
+    #         upper_teeth_mask_path = os.path.join(self.current_folder_path, selected_folder,f"{selected_folder}_Upper.nrrd")
             
-            # clearing any previous cache
-            self._clear_volume_cache()
-            self.image = None
+    #         # clearing any previous cache
+    #         self._clear_volume_cache()
+    #         self.image = None
             
-            with ThreadPoolExecutor() as executor:
-                future_volume = executor.submit(utilities.get_npy_from_nrrd_npy_path, input_volume_path)
-                future_mask   = executor.submit(utilities.images_and_masks_to_npy, *(mand_mask_path, maxilla_mask_path, upper_teeth_mask_path, lower_teeth_mask_path, selected_folder))
+    #         with ThreadPoolExecutor() as executor:
+    #             future_volume = executor.submit(utilities.get_npy_from_nrrd_npy_path, input_volume_path)
+    #             future_mask   = executor.submit(utilities.images_and_masks_to_npy, *(mand_mask_path, maxilla_mask_path, upper_teeth_mask_path, lower_teeth_mask_path, selected_folder))
 
-                self.volume = future_volume.result()
-                self.mask = future_mask.result()
+    #             self.volume = future_volume.result()
+    #             self.mask = future_mask.result()
             
-            #self.volume = utilities.get_npy_from_nrrd_npy_path(input_volume_path)
-            #input_volume_shape = self.volume.shape
-            #self.mask = utilities.images_and_masks_to_npy( mand_mask_path,input_volume_shape, maxilla_mask_path, upper_teeth_mask_path, lower_teeth_mask_path, case_id=selected_folder)
+    #         #self.volume = utilities.get_npy_from_nrrd_npy_path(input_volume_path)
+    #         #input_volume_shape = self.volume.shape
+    #         #self.mask = utilities.images_and_masks_to_npy( mand_mask_path,input_volume_shape, maxilla_mask_path, upper_teeth_mask_path, lower_teeth_mask_path, case_id=selected_folder)
             
-            self._initialize_volume_settings()
-            self._mask_colors_cache = None  # Clear cached colors
-            self.update_slice(self.current_slice_index)
-            self.file_name=selected_folder
+            # self._initialize_volume_settings()
+            # self._mask_colors_cache = None  # Clear cached colors
+            # self.update_slice(self.current_slice_index)
+            # self.file_name=selected_folder
             
     def create_left_panel_components(self):
         """Create components for the left panel"""
@@ -180,6 +191,18 @@ class VolumeViewer:
             )
             rb.pack(anchor=tk.W, pady=2)
     
+    def create_magic_mode_selector(self):
+        """Create magic mode radio buttons"""
+        mode_frame = ttk.LabelFrame(self.control_panel, text="magic Mode", padding=10)
+        mode_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        for mode in ["MIP"]:
+            rb = ttk.Checkbutton(
+                mode_frame, 
+                text=mode, 
+                command=self.volume_to_mip
+            )
+            rb.pack(anchor=tk.W, pady=2)
     def create_sliders(self):
         """Create control sliders"""
         sliders_frame = ttk.LabelFrame(self.control_panel, text="Adjustments", padding=10)
@@ -251,7 +274,7 @@ class VolumeViewer:
         if folder_path:
             self.series_listbox.delete(0, tk.END)  # Clear current items
             subfolders = [f for f in os.listdir(folder_path) 
-                        if os.path.isdir(os.path.join(folder_path, f))]
+                        if f.endswith(".npy")]
             for folder in sorted(subfolders):
                 self.series_listbox.insert(tk.END, folder)
             self.current_folder_path = folder_path  # Store the current folder path
@@ -267,7 +290,7 @@ class VolumeViewer:
             self.image = None
             self.volume = utilities.get_npy_from_nrrd_npy_path(file_path)
             self._initialize_volume_settings()
-            print(f"loading volime {self.file_name} , shape : {self.volume.shape}")
+            print(f"loading volume {self.file_name} , shape : {self.volume.shape}")
 
             
     def show_mask_overlay(self):
@@ -285,12 +308,13 @@ class VolumeViewer:
         
         max_val = max(self.unique_labels) if len(self.unique_labels) > 0 else 1
         self.wl_scale.config(from_=0, to=max_val - 1)
-        self.wl_scale.set(max_val)
-        self.ww_scale.set(max_val)
+        self.wl_scale.set(400)
+        self.ww_scale.set(2000)
 
         self.slice_slider.config(from_=0, to=self.volume.shape[0] - 1)
-        self.slice_slider.set(0)
-        self.update_slice(0)
+        mid_slice_index = self.volume.shape[0]//2
+        self.slice_slider.set(mid_slice_index)
+        self.update_slice(mid_slice_index)
 
     def _clear_volume_cache(self):
         """Clear cached data when loading new volume"""
@@ -372,6 +396,8 @@ class VolumeViewer:
             max_slices = self.volume.shape[1] - 1
             if self.volume_type == "npy":
                 slice_to_show = np.flipud(slice_to_show)
+
+        # print(f"current view mode 1 : {self.view_mode} , {self.view_mode.get()}")
 
         self.slice_slider.config(to=max_slices)
         self.slice_label.config(text=f"Slice {self.current_slice_index}")
@@ -568,7 +594,17 @@ class VolumeViewer:
             plotter = utilities.npy_to_pyvista(self.volume)
             plotter.show()
 
-
+    def volume_to_mip(self ):
+        print(f"current view mode : {self.view_mode} , {self.view_mode.get()}")
+        if self.view_mode.get() == "axial":
+            mip_image = np.max(self.volume , axis=0)
+        elif self.view_mode.get() == "sagittal":
+            mip_image = np.max(self.volume , axis=2)
+        elif self.view_mode.get() == "coronal":
+            mip_image = np.max(self.volume , axis=1)
+            
+        self._display_slice(mip_image)
+        
 def main():
     root = tk.Tk()
     volume_viewer = VolumeViewer(root)
