@@ -1,16 +1,15 @@
 # Simple CT Viewer ![ct-scan(1)](https://github.com/user-attachments/assets/77cfe3c5-868e-4564-b7e5-eda55689983e)
 
-- making a simple visualization tool for CT volumes | images in many formate [ npy , dicom ....etc]
-- [download](https://drive.google.com/file/d/1gCQI09gq5nAa0AqI_JqfL9vdT35mjNGE/view?usp=sharing)
+- making a simple visualization tool for CT volumes | images in many formate [ nrrd , npy , dicom ....etc]
 
+<img width="1390" height="919" alt="Screenshot 2025-09-01 020346" src="https://github.com/user-attachments/assets/f5d31968-065a-4585-9eb7-4675996af6c0" />
 
-![Captureaas](https://github.com/user-attachments/assets/57ab0a3f-fd13-4132-8f2e-76a23088e962)
+<img width="1398" height="922" alt="Screenshot 2025-08-17 111353" src="https://github.com/user-attachments/assets/d4e3dd55-56a8-433e-a6d4-fa20755fd5ea" />
 
-![Capture](https://github.com/user-attachments/assets/7cf5391f-a38b-48e5-81dd-afe5bb659e88)
 
 ## How to use :
 1. [pip install requirements] (recommended to install in virtual env)
-2.  run [python viewer.py]
+2.  run [python main.py]
 3. (optional) if you wanna get executible [pyinstaller --onefile --icon=icon.ico viewer.py]
 
 
